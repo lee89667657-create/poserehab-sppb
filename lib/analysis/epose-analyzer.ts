@@ -638,19 +638,67 @@ export function getMeasurementStatus(
 // 자세 유형 라벨
 // ============================================================================
 
-export const EPOSE_TYPE_LABELS: Record<EPosePostureType, { en: string; ko: string }> = {
-  normal: { en: 'Normal', ko: '정상' },
-  flat_back: { en: 'Flat Back', ko: '일자등' },
-  flat_lumbar: { en: 'Flat Lumbar', ko: '일자 요추' },
-  kyphosis: { en: 'Kyphosis', ko: '후만증 (굽은등)' },
-  lordosis: { en: 'Lordosis', ko: '전만증 (오목등)' },
-  kyphosis_lordosis: { en: 'Kyphosis-Lordosis', ko: '후만+전만' },
-  swayback: { en: 'Swayback', ko: '스웨이백' },
-  swayback_flat_lumbar: { en: 'Swayback + Flat Lumbar', ko: '스웨이백+일자요추' },
-  swayback_flat_back: { en: 'Swayback + Flat Back', ko: '스웨이백+일자등' },
-  swayback_kyphosis: { en: 'Swayback + Kyphosis', ko: '스웨이백+후만' },
-  swayback_lordosis: { en: 'Swayback + Lordosis', ko: '스웨이백+전만' },
-  swayback_kyphosis_lordosis: { en: 'Swayback + Kyphosis-Lordosis', ko: '스웨이백+후만+전만' },
+export const EPOSE_TYPE_LABELS: Record<EPosePostureType, { en: string; ko: string; description: string }> = {
+  normal: {
+    en: 'Normal',
+    ko: '정상 자세',
+    description: '균형 잡힌 좋은 자세입니다. 현재 상태를 유지하세요!'
+  },
+  flat_back: {
+    en: 'Flat Back',
+    ko: '평평한 등',
+    description: '등의 자연스러운 곡선이 줄어든 상태입니다. 코어 강화 운동이 도움됩니다.'
+  },
+  flat_lumbar: {
+    en: 'Flat Lumbar',
+    ko: '평평한 허리',
+    description: '허리의 자연스러운 곡선이 줄어든 상태입니다. 허리 유연성 운동을 추천드립니다.'
+  },
+  kyphosis: {
+    en: 'Kyphosis',
+    ko: '굽은 등',
+    description: '등이 앞으로 굽어있는 상태입니다. 가슴 스트레칭과 등 강화 운동이 필요합니다.'
+  },
+  lordosis: {
+    en: 'Lordosis',
+    ko: '젖힌 허리',
+    description: '허리가 과도하게 젖혀진 상태입니다. 복근 강화와 고관절 스트레칭이 도움됩니다.'
+  },
+  kyphosis_lordosis: {
+    en: 'Kyphosis-Lordosis',
+    ko: '굽은 등 + 젖힌 허리',
+    description: '등은 굽고 허리는 젖혀진 복합적인 상태입니다. 전문가 상담을 권장합니다.'
+  },
+  swayback: {
+    en: 'Swayback',
+    ko: '밀린 골반',
+    description: '골반이 앞으로 밀려난 상태입니다. 코어와 엉덩이 근육 강화가 필요합니다.'
+  },
+  swayback_flat_lumbar: {
+    en: 'Swayback + Flat Lumbar',
+    ko: '밀린 골반 + 평평한 허리',
+    description: '골반이 앞으로 밀리고 허리 곡선이 줄어든 상태입니다.'
+  },
+  swayback_flat_back: {
+    en: 'Swayback + Flat Back',
+    ko: '밀린 골반 + 평평한 등',
+    description: '골반이 앞으로 밀리고 등이 평평해진 상태입니다.'
+  },
+  swayback_kyphosis: {
+    en: 'Swayback + Kyphosis',
+    ko: '밀린 골반 + 굽은 등',
+    description: '골반이 앞으로 밀리고 등이 굽은 상태입니다. 자세 교정 운동이 필요합니다.'
+  },
+  swayback_lordosis: {
+    en: 'Swayback + Lordosis',
+    ko: '밀린 골반 + 젖힌 허리',
+    description: '골반이 앞으로 밀리고 허리가 과도하게 젖혀진 상태입니다.'
+  },
+  swayback_kyphosis_lordosis: {
+    en: 'Swayback + Kyphosis-Lordosis',
+    ko: '복합 자세 불균형',
+    description: '여러 부위에서 자세 불균형이 나타납니다. 전문가와 상담하여 체계적인 교정을 권장합니다.'
+  },
 }
 
 // 측정 항목 라벨 및 이상 범위
