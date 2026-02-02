@@ -507,26 +507,58 @@ export function SymmetryChart({
         </BarChart>
       </ResponsiveContainer>
 
-      {/* 대칭성 점수 */}
-      {measurements.leftRightSymmetry && (
-        <div className="mt-2 text-center">
-          <span className="text-text-secondary text-xs">
-            {language === 'ko' ? '대칭성' : 'Symmetry'}:{' '}
-          </span>
-          <span
-            className={cn(
-              'font-bold',
-              measurements.leftRightSymmetry.status === 'normal'
-                ? 'text-emerald-500'
-                : measurements.leftRightSymmetry.status === 'warning'
-                ? 'text-amber-500'
-                : 'text-red-500'
-            )}
-          >
-            {(measurements.leftRightSymmetry.value * 100).toFixed(0)}%
-          </span>
-        </div>
-      )}
+      {/* 대칭성 점수 - 데이터가 충분할 때만 표시 (0.5~2.0 범위 내) */}
+      {measurements.leftRightSymmetry &&
+        measurements.leftRightSymmetry.value >= 0.5 &&
+        measurements.leftRightSymmetry.value <= 2.0 && (() => {
+          const percent = measurements.leftRightSymmetry.value * 100
+          const isNormal = percent >= 95 && percent <= 105
+          const isWarning = (percent >= 85 && percent < 95) || (percent > 105 && percent <= 115)
+
+          return (
+            <div className="mt-2 text-center">
+              <div>
+                <span className="text-text-secondary text-xs">
+                  {language === 'ko' ? '대칭성' : 'Symmetry'}:{' '}
+                </span>
+                <span
+                  className={cn(
+                    'font-bold',
+                    isNormal
+                      ? 'text-emerald-500'
+                      : isWarning
+                      ? 'text-amber-500'
+                      : 'text-red-500'
+                  )}
+                >
+                  {percent.toFixed(0)}%
+                </span>
+              </div>
+              <p
+                className={cn(
+                  'mt-1 text-xs',
+                  isNormal
+                    ? 'text-emerald-500'
+                    : isWarning
+                    ? 'text-amber-500'
+                    : 'text-red-500'
+                )}
+              >
+                {isNormal
+                  ? language === 'ko'
+                    ? '✅ 정상 - 좌우 균형이 양호합니다'
+                    : '✅ Normal - Good left-right balance'
+                  : isWarning
+                  ? language === 'ko'
+                    ? '⚠️ 경미한 비대칭 - 모니터링 필요'
+                    : '⚠️ Mild asymmetry - Monitoring needed'
+                  : language === 'ko'
+                  ? '❌ 비대칭 - 약한 쪽 근력 강화 운동 추천'
+                  : '❌ Asymmetry - Strengthen weaker side'}
+              </p>
+            </div>
+          )
+        })()}
     </div>
   )
 }

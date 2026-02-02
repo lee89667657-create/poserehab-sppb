@@ -127,6 +127,80 @@ export function usePoseDetection(options: UsePoseDetectionOptions = {}): UsePose
   const isDetectingRef = useRef(false)
   const isInitializingRef = useRef(false)
 
+  // 추적 안정성을 위한 이전 사람 위치 저장
+  const lastPersonCenterRef = useRef<{ x: number; y: number } | null>(null)
+  const stableFrameCountRef = useRef(0)
+
+  // 사람의 중심점 계산 (어깨와 엉덩이의 중간)
+  const calculatePersonCenter = useCallback((poseLandmarks: any[]): { x: number; y: number } => {
+    const leftShoulder = poseLandmarks[POSE_LANDMARKS.LEFT_SHOULDER]
+    const rightShoulder = poseLandmarks[POSE_LANDMARKS.RIGHT_SHOULDER]
+    const leftHip = poseLandmarks[POSE_LANDMARKS.LEFT_HIP]
+    const rightHip = poseLandmarks[POSE_LANDMARKS.RIGHT_HIP]
+
+    const centerX = (leftShoulder.x + rightShoulder.x + leftHip.x + rightHip.x) / 4
+    const centerY = (leftShoulder.y + rightShoulder.y + leftHip.y + rightHip.y) / 4
+
+    return { x: centerX, y: centerY }
+  }, [])
+
+  // 화면 중앙(0.5, 0.5)과의 거리 계산
+  const getDistanceFromCenter = useCallback((center: { x: number; y: number }): number => {
+    const dx = center.x - 0.5
+    const dy = center.y - 0.5
+    return Math.sqrt(dx * dx + dy * dy)
+  }, [])
+
+  // 두 점 사이의 거리
+  const getDistance = useCallback((p1: { x: number; y: number }, p2: { x: number; y: number }): number => {
+    const dx = p1.x - p2.x
+    const dy = p1.y - p2.y
+    return Math.sqrt(dx * dx + dy * dy)
+  }, [])
+
+  // 감지된 사람이 유효한지 확인 (화면 중앙 기준 추적)
+  const shouldAcceptPerson = useCallback((poseLandmarks: any[]): boolean => {
+    const currentCenter = calculatePersonCenter(poseLandmarks)
+    const distanceFromScreenCenter = getDistanceFromCenter(currentCenter)
+
+    // 화면 중앙에서 너무 먼 사람은 무시 (화면의 40% 이상 떨어진 경우)
+    if (distanceFromScreenCenter > 0.4) {
+      return false
+    }
+
+    // 이전에 추적 중인 사람이 없으면 수락
+    if (!lastPersonCenterRef.current) {
+      lastPersonCenterRef.current = currentCenter
+      stableFrameCountRef.current = 1
+      return true
+    }
+
+    // 이전 사람과의 거리
+    const distanceFromLastPerson = getDistance(currentCenter, lastPersonCenterRef.current)
+
+    // 위치가 갑자기 크게 변했으면 (다른 사람으로 전환된 것으로 추정)
+    if (distanceFromLastPerson > 0.15) {
+      // 현재 사람이 화면 중앙에 더 가까우면 새 사람으로 전환
+      const lastDistanceFromCenter = getDistanceFromCenter(lastPersonCenterRef.current)
+      if (distanceFromScreenCenter < lastDistanceFromCenter) {
+        lastPersonCenterRef.current = currentCenter
+        stableFrameCountRef.current = 1
+        return true
+      }
+      // 그렇지 않으면 무시 (이전 사람 유지)
+      return false
+    }
+
+    // 정상적인 움직임 - 위치 업데이트
+    // 스무딩 적용하여 급격한 변화 방지
+    lastPersonCenterRef.current = {
+      x: lastPersonCenterRef.current.x * 0.7 + currentCenter.x * 0.3,
+      y: lastPersonCenterRef.current.y * 0.7 + currentCenter.y * 0.3,
+    }
+    stableFrameCountRef.current++
+    return true
+  }, [calculatePersonCenter, getDistanceFromCenter, getDistance])
+
   // Process landmarks helper
   const processLandmarks = useCallback((poseLandmarks: any[]): Landmark[] => {
     return poseLandmarks.map((lm: any) => ({
@@ -178,6 +252,10 @@ export function usePoseDetection(options: UsePoseDetectionOptions = {}): UsePose
 
       pose.onResults((results: any) => {
         if (results.poseLandmarks) {
+          // 화면 중앙에 가장 가까운 사람만 추적
+          if (!shouldAcceptPerson(results.poseLandmarks)) {
+            return // 다른 사람으로 전환된 것으로 판단되면 무시
+          }
           const processed = processLandmarks(results.poseLandmarks)
           setLandmarks(processed)
           onResults?.(processed)
@@ -204,7 +282,7 @@ export function usePoseDetection(options: UsePoseDetectionOptions = {}): UsePose
       setIsLoading(false)
       isInitializingRef.current = false
     }
-  }, [modelComplexity, minDetectionConfidence, minTrackingConfidence, onResults, processLandmarks])
+  }, [modelComplexity, minDetectionConfidence, minTrackingConfidence, onResults, processLandmarks, shouldAcceptPerson])
 
   // Preload model without starting detection
   const loadModel = useCallback(async () => {
@@ -317,6 +395,9 @@ export function usePoseDetection(options: UsePoseDetectionOptions = {}): UsePose
       cancelAnimationFrame(animationFrameRef.current)
       animationFrameRef.current = null
     }
+    // 추적 상태 리셋
+    lastPersonCenterRef.current = null
+    stableFrameCountRef.current = 0
   }, [])
 
   // Cleanup

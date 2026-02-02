@@ -39,6 +39,7 @@ function calculateDistance(p1: Point2D, p2: Point2D): number {
 
 /**
  * 세 점으로 이루어진 각도를 계산합니다 (p2가 꼭짓점).
+ * 2D 버전 (하위 호환성 유지)
  */
 function calculateAngle(p1: Point2D, p2: Point2D, p3: Point2D): number {
   const v1 = { x: p1.x - p2.x, y: p1.y - p2.y }
@@ -48,6 +49,35 @@ function calculateAngle(p1: Point2D, p2: Point2D, p3: Point2D): number {
   const cross = v1.x * v2.y - v1.y * v2.x
 
   const angle = Math.atan2(Math.abs(cross), dot)
+  return (angle * 180) / Math.PI
+}
+
+/**
+ * 세 점으로 이루어진 3D 각도를 계산합니다 (p2가 꼭짓점).
+ * 측면 영상에서 무릎/엉덩이 굴곡 각도 계산에 필수
+ */
+function calculateAngle3D(p1: Landmark, p2: Landmark, p3: Landmark): number {
+  const v1 = {
+    x: p1.x - p2.x,
+    y: p1.y - p2.y,
+    z: (p1.z || 0) - (p2.z || 0),
+  }
+  const v2 = {
+    x: p3.x - p2.x,
+    y: p3.y - p2.y,
+    z: (p3.z || 0) - (p2.z || 0),
+  }
+
+  const dot = v1.x * v2.x + v1.y * v2.y + v1.z * v2.z
+  const mag1 = Math.sqrt(v1.x * v1.x + v1.y * v1.y + v1.z * v1.z)
+  const mag2 = Math.sqrt(v2.x * v2.x + v2.y * v2.y + v2.z * v2.z)
+
+  if (mag1 === 0 || mag2 === 0) return 0
+
+  const cosAngle = dot / (mag1 * mag2)
+  // clamp to [-1, 1] to avoid NaN from acos
+  const clampedCos = Math.max(-1, Math.min(1, cosAngle))
+  const angle = Math.acos(clampedCos)
   return (angle * 180) / Math.PI
 }
 
@@ -113,6 +143,10 @@ export class GaitAnalyzer {
   // 발목 최저점 (지면 기준선)
   private groundLevel = { left: 1, right: 1 }
 
+  // 보행 속도 계산용 (발목 X좌표 변화 기반)
+  private ankleXHistory: { x: number; timestamp: number }[] = []
+  private calculatedSpeed: number = 0
+
   constructor() {
     this.maxBufferSize = GAIT_ANALYSIS_CONFIG.maxFrameBufferSize
   }
@@ -130,6 +164,8 @@ export class GaitAnalyzer {
     this.rightStrides = []
     this.gaitCycles = []
     this.groundLevel = { left: 1, right: 1 }
+    this.ankleXHistory = []
+    this.calculatedSpeed = 0
     this.currentPhaseState = {
       leftLeg: 'stance',
       rightLeg: 'stance',
@@ -190,6 +226,9 @@ export class GaitAnalyzer {
     this.groundLevel.left = Math.max(this.groundLevel.left, leftFootY)
     this.groundLevel.right = Math.max(this.groundLevel.right, rightFootY)
 
+    // 보행 속도 계산 (발목 X좌표 변화 기반)
+    this.updateGaitSpeed(leftAnkle, rightAnkle, timestamp)
+
     // 보행 단계 감지
     this.detectGaitPhase(leftAnkle, rightAnkle, leftHeel, rightHeel, timestamp)
 
@@ -222,26 +261,28 @@ export class GaitAnalyzer {
 
   /**
    * 무릎 굴곡 각도를 계산합니다.
+   * 3D 좌표를 사용하여 측면 영상에서도 정확한 각도 계산
    */
   private calculateKneeFlexion(
     hip: Landmark,
     knee: Landmark,
     ankle: Landmark
   ): number {
-    const angle = calculateAngle(hip, knee, ankle)
+    const angle = calculateAngle3D(hip, knee, ankle)
     // 완전 펴진 상태가 180도이므로, 굴곡 각도 = 180 - 각도
     return 180 - angle
   }
 
   /**
    * 엉덩이 굴곡 각도를 계산합니다.
+   * 3D 좌표를 사용하여 측면 영상에서도 정확한 각도 계산
    */
   private calculateHipFlexion(
     shoulder: Landmark,
     hip: Landmark,
     knee: Landmark
   ): number {
-    const angle = calculateAngle(shoulder, hip, knee)
+    const angle = calculateAngle3D(shoulder, hip, knee)
     // 직립 상태가 약 180도이므로
     return Math.abs(180 - angle)
   }
@@ -269,6 +310,50 @@ export class GaitAnalyzer {
 
     // 수직선과의 각도 (양수: 앞으로 기울임, 음수: 뒤로 기울임)
     return calculateAngleFromVertical(hipMid, shoulderMid)
+  }
+
+  /**
+   * 보행 속도를 계산합니다 (발목 X좌표 변화 기반).
+   * 측면 영상에서 사람이 걸어가는 속도를 추정합니다.
+   */
+  private updateGaitSpeed(
+    leftAnkle: Landmark,
+    rightAnkle: Landmark,
+    timestamp: number
+  ): void {
+    // 엉덩이 중심의 X좌표 사용 (발목보다 안정적)
+    const centerX = (leftAnkle.x + rightAnkle.x) / 2
+
+    // 히스토리에 추가
+    this.ankleXHistory.push({ x: centerX, timestamp })
+
+    // 최근 1초 데이터만 유지
+    const oneSecondAgo = timestamp - 1000
+    this.ankleXHistory = this.ankleXHistory.filter((p) => p.timestamp > oneSecondAgo)
+
+    // 최소 0.5초 데이터가 있어야 속도 계산
+    if (this.ankleXHistory.length < 2) {
+      return
+    }
+
+    const oldest = this.ankleXHistory[0]
+    const newest = this.ankleXHistory[this.ankleXHistory.length - 1]
+
+    const deltaX = Math.abs(newest.x - oldest.x) // 정규화된 좌표 (0~1)
+    const deltaTime = (newest.timestamp - oldest.timestamp) / 1000 // 초 단위
+
+    if (deltaTime > 0.3) {
+      // 정규화된 좌표를 실제 거리로 변환 (가정: 화면 너비 = 약 4m)
+      // 측면 영상에서 3-4m 걷는다고 가정
+      const estimatedScreenWidth = 4.0 // meters
+      const distanceMeters = deltaX * estimatedScreenWidth
+
+      // 속도 계산 (m/s)
+      const rawSpeed = distanceMeters / deltaTime
+
+      // 스무딩 적용
+      this.calculatedSpeed = this.calculatedSpeed * 0.7 + rawSpeed * 0.3
+    }
   }
 
   /**
@@ -437,20 +522,27 @@ export class GaitAnalyzer {
   ): Partial<GaitMeasurements> {
     const windowSize = GAIT_ANALYSIS_CONFIG.smoothingWindowSize
 
-    // 보폭 (정규화된 좌표이므로 화면 비율 기준)
+    // 보폭 (정규화된 좌표 → 실제 cm로 변환)
+    // 측면 촬영 기준 화면 너비 약 4m = 400cm
+    const estimatedScreenWidthCm = 400
     const avgLeftStride = movingAverage(this.leftStrides, windowSize)
     const avgRightStride = movingAverage(this.rightStrides, windowSize)
-    const avgStride = (avgLeftStride + avgRightStride) / 2
+    const avgStrideNormalized = (avgLeftStride + avgRightStride) / 2
+    const avgStrideCm = avgStrideNormalized * estimatedScreenWidthCm
 
     // 보행 주기
     const avgCycle = movingAverage(this.gaitCycles, windowSize)
 
-    // 좌우 대칭성
-    const symmetry =
+    // 좌우 대칭성 (0.5~2.0 범위로 클램핑)
+    const rawSymmetry =
       avgRightStride > 0 ? avgLeftStride / avgRightStride : 1
+    const symmetry = Math.max(0.5, Math.min(2.0, rawSymmetry))
 
-    // 보행 속도 (프레임 간 이동 거리 기반 추정)
-    const speed = avgCycle > 0 ? avgStride / (avgCycle / 1000) : 0
+    // 보폭 (cm 단위)
+    const avgStride = avgStrideCm
+
+    // 보행 속도 (발목 X좌표 변화 기반으로 직접 계산된 값 사용)
+    const speed = this.calculatedSpeed
 
     // 최근 프레임에서 각도 추출
     const recentFrames = this.frameBuffer.slice(-windowSize)
@@ -498,7 +590,7 @@ export class GaitAnalyzer {
 
     return {
       strideLength: this.createMeasurementValue(
-        avgStride * 100, // 정규화된 값을 스케일링 (근사치)
+        avgStride, // 이미 cm 단위로 변환됨
         'strideLength'
       ),
       gaitSpeed: this.createMeasurementValue(speed, 'gaitSpeed'),

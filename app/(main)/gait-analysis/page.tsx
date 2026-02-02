@@ -3,7 +3,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
-import { History, Info } from 'lucide-react'
+import { History, Info, ChevronDown, ChevronUp, Video } from 'lucide-react'
 import { MainLayout } from '@/components/layout/main-layout'
 import { GaitCamera } from '@/components/gait/gait-camera'
 import { GaitDashboard } from '@/components/gait/gait-dashboard'
@@ -47,6 +47,7 @@ export default function GaitAnalysisPage() {
 
   // 로컬 상태
   const [analysisTime, setAnalysisTime] = useState(0)
+  const [isGuideOpen, setIsGuideOpen] = useState(false)
   const analysisStartTime = useRef<number>(0)
   const timerRef = useRef<NodeJS.Timeout | null>(null)
 
@@ -171,6 +172,67 @@ export default function GaitAnalysisPage() {
             </Link>
           </div>
         </div>
+
+        {/* 촬영 가이드 (접었다 펼 수 있음) */}
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-amber-500/10 rounded-xl border border-amber-500/30 overflow-hidden"
+        >
+          <button
+            onClick={() => setIsGuideOpen(!isGuideOpen)}
+            className="w-full flex items-center justify-between p-3 hover:bg-amber-500/5 transition-colors"
+          >
+            <div className="flex items-center gap-2">
+              <Video className="h-5 w-5 text-amber-500" />
+              <span className="text-text-primary font-medium">
+                {isGuideOpen
+                  ? language === 'ko' ? '📹 촬영 가이드' : '📹 Recording Guide'
+                  : language === 'ko' ? '📹 촬영 가이드 보기' : '📹 View Recording Guide'}
+              </span>
+            </div>
+            {isGuideOpen ? (
+              <ChevronUp className="h-5 w-5 text-text-secondary" />
+            ) : (
+              <ChevronDown className="h-5 w-5 text-text-secondary" />
+            )}
+          </button>
+          {isGuideOpen && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              className="px-4 pb-3"
+            >
+              <ul className="text-text-secondary space-y-1.5 text-sm">
+                <li className="flex items-center gap-2">
+                  <span className="text-amber-500">•</span>
+                  {language === 'ko'
+                    ? '측면에서 촬영해주세요 (옆에서)'
+                    : 'Record from the side'}
+                </li>
+                <li className="flex items-center gap-2">
+                  <span className="text-amber-500">•</span>
+                  {language === 'ko'
+                    ? '3~4m 거리를 걸어주세요'
+                    : 'Walk 3-4m distance'}
+                </li>
+                <li className="flex items-center gap-2">
+                  <span className="text-amber-500">•</span>
+                  {language === 'ko'
+                    ? '화면에 1명만 나오게 해주세요'
+                    : 'Only 1 person should be visible'}
+                </li>
+                <li className="flex items-center gap-2">
+                  <span className="text-amber-500">•</span>
+                  {language === 'ko'
+                    ? '카메라는 허리~가슴 높이에 고정'
+                    : 'Fix camera at waist~chest height'}
+                </li>
+              </ul>
+            </motion.div>
+          )}
+        </motion.div>
 
         {/* 분석 시간 표시 */}
         {isActive && (
