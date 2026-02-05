@@ -102,6 +102,8 @@ interface UsePoseDetectionReturn {
   isReady: boolean
   error: string | null
   landmarks: Landmark[]
+  landmarksRef: React.MutableRefObject<Landmark[]>
+  fps: number
   loadModel: () => Promise<void>
   detectPose: (videoElement: HTMLVideoElement) => void
   detectPoseFromImage: (imageElement: HTMLImageElement | HTMLCanvasElement) => Promise<Landmark[]>
@@ -112,7 +114,7 @@ interface UsePoseDetectionReturn {
 export function usePoseDetection(options: UsePoseDetectionOptions = {}): UsePoseDetectionReturn {
   const {
     onResults,
-    modelComplexity = 1,
+    modelComplexity = 0,
     minDetectionConfidence = 0.5,
     minTrackingConfidence = 0.5,
   } = options
@@ -121,15 +123,29 @@ export function usePoseDetection(options: UsePoseDetectionOptions = {}): UsePose
   const [isReady, setIsReady] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [landmarks, setLandmarks] = useState<Landmark[]>([])
+  const [fps, setFps] = useState(0)
 
   const poseRef = useRef<any>(null)
   const animationFrameRef = useRef<number | null>(null)
   const isDetectingRef = useRef(false)
   const isInitializingRef = useRef(false)
 
-  // 추적 안정성을 위한 이전 사람 위치 저장
+  // Performance optimization refs
+  const landmarksRef = useRef<Landmark[]>([])
+  const isProcessingRef = useRef(false)
+  const lastStateUpdateRef = useRef(0)
+  const fpsCounterRef = useRef({ frames: 0, lastTime: 0 })
+  const fpsIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  // Stable ref for onResults callback to avoid stale closures
+  const onResultsRef = useRef(onResults)
+  onResultsRef.current = onResults
+
+  // 추적 안정성을 위한 이전 사람 정보 저장
   const lastPersonCenterRef = useRef<{ x: number; y: number } | null>(null)
+  const lastPersonSizeRef = useRef<number>(0)
   const stableFrameCountRef = useRef(0)
+  const rejectedFrameCountRef = useRef(0)
 
   // 사람의 중심점 계산 (어깨와 엉덩이의 중간)
   const calculatePersonCenter = useCallback((poseLandmarks: any[]): { x: number; y: number } => {
@@ -142,6 +158,31 @@ export function usePoseDetection(options: UsePoseDetectionOptions = {}): UsePose
     const centerY = (leftShoulder.y + rightShoulder.y + leftHip.y + rightHip.y) / 4
 
     return { x: centerX, y: centerY }
+  }, [])
+
+  // 몸 크기 계산 (어깨 너비 + 몸통 높이)
+  const calculateBodySize = useCallback((poseLandmarks: any[]): number => {
+    const leftShoulder = poseLandmarks[POSE_LANDMARKS.LEFT_SHOULDER]
+    const rightShoulder = poseLandmarks[POSE_LANDMARKS.RIGHT_SHOULDER]
+    const leftHip = poseLandmarks[POSE_LANDMARKS.LEFT_HIP]
+    const rightHip = poseLandmarks[POSE_LANDMARKS.RIGHT_HIP]
+
+    const shoulderWidth = Math.abs(leftShoulder.x - rightShoulder.x)
+    const torsoHeight = Math.abs((leftShoulder.y + rightShoulder.y) / 2 - (leftHip.y + rightHip.y) / 2)
+
+    return shoulderWidth + torsoHeight
+  }, [])
+
+  // 주요 랜드마크의 평균 visibility
+  const calculateVisibility = useCallback((poseLandmarks: any[]): number => {
+    const keyIndices = [
+      POSE_LANDMARKS.LEFT_SHOULDER,
+      POSE_LANDMARKS.RIGHT_SHOULDER,
+      POSE_LANDMARKS.LEFT_HIP,
+      POSE_LANDMARKS.RIGHT_HIP,
+    ]
+    const visibilities = keyIndices.map(i => poseLandmarks[i]?.visibility || 0)
+    return visibilities.reduce((a, b) => a + b, 0) / visibilities.length
   }, [])
 
   // 화면 중앙(0.5, 0.5)과의 거리 계산
@@ -158,48 +199,65 @@ export function usePoseDetection(options: UsePoseDetectionOptions = {}): UsePose
     return Math.sqrt(dx * dx + dy * dy)
   }, [])
 
-  // 감지된 사람이 유효한지 확인 (화면 중앙 기준 추적)
+  // 감지된 사람이 유효한지 확인
   const shouldAcceptPerson = useCallback((poseLandmarks: any[]): boolean => {
     const currentCenter = calculatePersonCenter(poseLandmarks)
+    const currentSize = calculateBodySize(poseLandmarks)
+    const visibility = calculateVisibility(poseLandmarks)
     const distanceFromScreenCenter = getDistanceFromCenter(currentCenter)
 
-    // 화면 중앙에서 너무 먼 사람은 무시 (화면의 40% 이상 떨어진 경우)
-    if (distanceFromScreenCenter > 0.4) {
-      return false
+    if (typeof window !== 'undefined' && (window as any).__POSE_DEBUG__) {
+      console.log('[Pose] Person check:', {
+        visibility: visibility.toFixed(2),
+        distanceFromCenter: distanceFromScreenCenter.toFixed(2),
+        bodySize: currentSize.toFixed(2),
+        center: { x: currentCenter.x.toFixed(2), y: currentCenter.y.toFixed(2) }
+      })
     }
 
-    // 이전에 추적 중인 사람이 없으면 수락
+    if (visibility < 0.3) return false
+    if (distanceFromScreenCenter > 0.5) return false
+    if (currentSize < 0.08) return false
+
     if (!lastPersonCenterRef.current) {
       lastPersonCenterRef.current = currentCenter
+      lastPersonSizeRef.current = currentSize
       stableFrameCountRef.current = 1
+      rejectedFrameCountRef.current = 0
       return true
     }
 
-    // 이전 사람과의 거리
     const distanceFromLastPerson = getDistance(currentCenter, lastPersonCenterRef.current)
 
-    // 위치가 갑자기 크게 변했으면 (다른 사람으로 전환된 것으로 추정)
-    if (distanceFromLastPerson > 0.15) {
-      // 현재 사람이 화면 중앙에 더 가까우면 새 사람으로 전환
-      const lastDistanceFromCenter = getDistanceFromCenter(lastPersonCenterRef.current)
-      if (distanceFromScreenCenter < lastDistanceFromCenter) {
-        lastPersonCenterRef.current = currentCenter
-        stableFrameCountRef.current = 1
-        return true
+    if (distanceFromLastPerson > 0.12) {
+      rejectedFrameCountRef.current++
+      if (rejectedFrameCountRef.current > 30) {
+        const lastDistanceFromCenter = getDistanceFromCenter(lastPersonCenterRef.current)
+        if (distanceFromScreenCenter < lastDistanceFromCenter && currentSize >= lastPersonSizeRef.current * 0.7) {
+          lastPersonCenterRef.current = currentCenter
+          lastPersonSizeRef.current = currentSize
+          stableFrameCountRef.current = 1
+          rejectedFrameCountRef.current = 0
+          return true
+        }
       }
-      // 그렇지 않으면 무시 (이전 사람 유지)
       return false
     }
 
-    // 정상적인 움직임 - 위치 업데이트
-    // 스무딩 적용하여 급격한 변화 방지
+    if (currentSize < lastPersonSizeRef.current * 0.5) {
+      rejectedFrameCountRef.current++
+      return false
+    }
+
     lastPersonCenterRef.current = {
       x: lastPersonCenterRef.current.x * 0.7 + currentCenter.x * 0.3,
       y: lastPersonCenterRef.current.y * 0.7 + currentCenter.y * 0.3,
     }
+    lastPersonSizeRef.current = lastPersonSizeRef.current * 0.8 + currentSize * 0.2
     stableFrameCountRef.current++
+    rejectedFrameCountRef.current = 0
     return true
-  }, [calculatePersonCenter, getDistanceFromCenter, getDistance])
+  }, [calculatePersonCenter, calculateBodySize, calculateVisibility, getDistanceFromCenter, getDistance])
 
   // Process landmarks helper
   const processLandmarks = useCallback((poseLandmarks: any[]): Landmark[] => {
@@ -219,13 +277,11 @@ export function usePoseDetection(options: UsePoseDetectionOptions = {}): UsePose
     setIsLoading(true)
     setError(null)
 
-    console.log('[Pose] Initializing MediaPipe Pose...')
+    console.log('[Pose] Initializing MediaPipe Pose (complexity:', modelComplexity, ')...')
 
     try {
-      // Load script from CDN
       await loadMediaPipeScript()
 
-      // Access Pose from global window
       const PoseClass = (window as any).Pose
       if (!PoseClass) {
         throw new Error('MediaPipe Pose class not found')
@@ -252,17 +308,29 @@ export function usePoseDetection(options: UsePoseDetectionOptions = {}): UsePose
 
       pose.onResults((results: any) => {
         if (results.poseLandmarks) {
-          // 화면 중앙에 가장 가까운 사람만 추적
           if (!shouldAcceptPerson(results.poseLandmarks)) {
-            return // 다른 사람으로 전환된 것으로 판단되면 무시
+            return
           }
+
           const processed = processLandmarks(results.poseLandmarks)
-          setLandmarks(processed)
-          onResults?.(processed)
+
+          // Always update ref immediately (no React re-render)
+          landmarksRef.current = processed
+
+          // FPS tracking
+          fpsCounterRef.current.frames++
+
+          // Throttle React state update to reduce re-renders (~10fps)
+          const now = performance.now()
+          if (now - lastStateUpdateRef.current >= 100) {
+            lastStateUpdateRef.current = now
+            setLandmarks(processed)
+          }
+
+          onResultsRef.current?.(processed)
         }
       })
 
-      // Wait for model to initialize with timeout
       console.log('[Pose] Waiting for model initialization...')
       await Promise.race([
         pose.initialize(),
@@ -282,7 +350,7 @@ export function usePoseDetection(options: UsePoseDetectionOptions = {}): UsePose
       setIsLoading(false)
       isInitializingRef.current = false
     }
-  }, [modelComplexity, minDetectionConfidence, minTrackingConfidence, onResults, processLandmarks, shouldAcceptPerson])
+  }, [modelComplexity, minDetectionConfidence, minTrackingConfidence, processLandmarks, shouldAcceptPerson])
 
   // Preload model without starting detection
   const loadModel = useCallback(async () => {
@@ -321,31 +389,28 @@ export function usePoseDetection(options: UsePoseDetectionOptions = {}): UsePose
           return
         }
 
-        // Set up one-time result handler
         const handleResult = (results: any) => {
           if (results.poseLandmarks) {
             const processed = processLandmarks(results.poseLandmarks)
+            landmarksRef.current = processed
             setLandmarks(processed)
-            onResults?.(processed)
+            onResultsRef.current?.(processed)
             resolve(processed)
           } else {
             resolve([])
           }
         }
 
-        // Temporarily set result handler for this detection
         poseRef.current.onResults(handleResult)
-
-        // Send image for detection
         poseRef.current.send({ image: imageElement }).catch(() => {
           resolve([])
         })
       })
     },
-    [initializePose, onResults, processLandmarks]
+    [initializePose, processLandmarks]
   )
 
-  // Continuous detection
+  // Continuous detection - OPTIMIZED (non-blocking rAF loop)
   const startDetection = useCallback(
     async (videoElement: HTMLVideoElement) => {
       console.log('[Pose] Starting detection...')
@@ -362,17 +427,32 @@ export function usePoseDetection(options: UsePoseDetectionOptions = {}): UsePose
         }
 
         isDetectingRef.current = true
+        isProcessingRef.current = false
         console.log('[Pose] Detection loop started')
 
-        const detect = async () => {
+        // Start FPS counter
+        fpsCounterRef.current = { frames: 0, lastTime: performance.now() }
+        if (fpsIntervalRef.current) clearInterval(fpsIntervalRef.current)
+        fpsIntervalRef.current = setInterval(() => {
+          const now = performance.now()
+          const elapsed = (now - fpsCounterRef.current.lastTime) / 1000
+          if (elapsed > 0) {
+            const currentFps = Math.round(fpsCounterRef.current.frames / elapsed)
+            setFps(currentFps)
+            console.log(`[Pose] FPS: ${currentFps}`)
+            fpsCounterRef.current = { frames: 0, lastTime: now }
+          }
+        }, 2000)
+
+        // Non-blocking detection loop
+        // rAF runs at display refresh rate; frames are sent only when previous completes
+        const detect = () => {
           if (!isDetectingRef.current) return
 
-          if (poseRef.current && videoElement.readyState >= 2) {
-            try {
-              await poseRef.current.send({ image: videoElement })
-            } catch (err) {
-              // Ignore send errors during continuous detection
-            }
+          if (!isProcessingRef.current && poseRef.current && videoElement.readyState >= 2) {
+            isProcessingRef.current = true
+            poseRef.current.send({ image: videoElement })
+              .finally(() => { isProcessingRef.current = false })
           }
 
           if (isDetectingRef.current) {
@@ -391,13 +471,25 @@ export function usePoseDetection(options: UsePoseDetectionOptions = {}): UsePose
 
   const stopDetection = useCallback(() => {
     isDetectingRef.current = false
+    isProcessingRef.current = false
+
     if (animationFrameRef.current) {
       cancelAnimationFrame(animationFrameRef.current)
       animationFrameRef.current = null
     }
+
+    // Stop FPS counter
+    if (fpsIntervalRef.current) {
+      clearInterval(fpsIntervalRef.current)
+      fpsIntervalRef.current = null
+    }
+    setFps(0)
+
     // 추적 상태 리셋
     lastPersonCenterRef.current = null
+    lastPersonSizeRef.current = 0
     stableFrameCountRef.current = 0
+    rejectedFrameCountRef.current = 0
   }, [])
 
   // Cleanup
@@ -420,6 +512,8 @@ export function usePoseDetection(options: UsePoseDetectionOptions = {}): UsePose
     isReady,
     error,
     landmarks,
+    landmarksRef,
+    fps,
     loadModel,
     detectPose,
     detectPoseFromImage,

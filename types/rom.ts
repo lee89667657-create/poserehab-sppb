@@ -1,58 +1,38 @@
 // ROM (Range of Motion) 측정 관련 타입 정의
 
 export type JointCategory =
-  | 'neck'
   | 'shoulder'
   | 'elbow'
   | 'wrist'
+  | 'finger'
   | 'hip'
   | 'knee'
   | 'ankle'
-  | 'spine'
+
+export type ExtremityGroup = 'upper' | 'lower'
 
 export type JointSide = 'left' | 'right' | 'center'
 
 export type MovementType =
-  // Neck
-  | 'neck_flexion'
-  | 'neck_extension'
-  | 'neck_rotation_left'
-  | 'neck_rotation_right'
-  | 'neck_lateral_left'
-  | 'neck_lateral_right'
-  // Shoulder
+  // Upper Extremity - Shoulder
   | 'shoulder_flexion'
   | 'shoulder_extension'
-  | 'shoulder_abduction'
-  | 'shoulder_adduction'
-  | 'shoulder_internal_rotation'
-  | 'shoulder_external_rotation'
-  // Elbow
+  // Upper Extremity - Elbow
   | 'elbow_flexion'
-  | 'elbow_extension'
-  // Wrist
+  // Upper Extremity - Wrist
   | 'wrist_flexion'
   | 'wrist_extension'
-  | 'wrist_radial_deviation'
-  | 'wrist_ulnar_deviation'
-  // Hip
+  // Upper Extremity - Finger
+  | 'finger_mcp_flexion'
+  | 'finger_pip_flexion'
+  // Lower Extremity - Hip
   | 'hip_flexion'
-  | 'hip_extension'
   | 'hip_abduction'
-  | 'hip_adduction'
-  | 'hip_internal_rotation'
-  | 'hip_external_rotation'
-  // Knee
+  // Lower Extremity - Knee
   | 'knee_flexion'
-  | 'knee_extension'
-  // Ankle
+  // Lower Extremity - Ankle
   | 'ankle_dorsiflexion'
   | 'ankle_plantarflexion'
-  // Spine
-  | 'spine_flexion'
-  | 'spine_extension'
-  | 'spine_lateral_left'
-  | 'spine_lateral_right'
 
 export interface NormalRange {
   min: number
@@ -70,7 +50,8 @@ export interface JointMovement {
   guideKo: string
   normalRange: NormalRange
   side: JointSide
-  // MediaPipe 랜드마크 인덱스
+  cameraMeasurable: boolean // 카메라로 측정 가능 여부
+  // MediaPipe 랜드마크 인덱스 (cameraMeasurable인 경우에만 사용)
   landmarks: {
     point1: number // 시작점
     point2: number // 중심점 (각도 측정 기준)
@@ -105,6 +86,7 @@ export interface RomMeasurementSession {
 // 관절별 카테고리 정보
 export interface JointCategoryInfo {
   id: JointCategory
+  extremity: ExtremityGroup
   nameEn: string
   nameKo: string
   icon: string

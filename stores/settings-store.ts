@@ -47,6 +47,12 @@ export const useSettingsStore = create<SettingsState>()(
     }),
     {
       name: 'posture-ai-settings',
+      partialize: (state) => ({
+        theme: state.theme,
+        colorTheme: state.colorTheme,
+        language: state.language,
+        notifications: state.notifications,
+      }),
     }
   )
 )

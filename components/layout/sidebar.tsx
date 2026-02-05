@@ -9,13 +9,6 @@ import {
   Scan,
   ClipboardList,
   Dumbbell,
-  Hand,
-  Ruler,
-  Footprints,
-  PersonStanding,
-  Gamepad2,
-  History,
-  Brain,
   Settings,
   Moon,
   Sun,
@@ -23,6 +16,9 @@ import {
   ChevronLeft,
   ChevronRight,
   Palette,
+  UserCheck,
+  Gamepad2,
+  Database,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useSettingsStore, type Theme, type ColorTheme } from '@/stores/settings-store'
@@ -31,15 +27,11 @@ import { useTranslation } from '@/hooks/use-translation'
 const navItems = [
   { href: '/dashboard', icon: Home, labelKey: 'nav.home' },
   { href: '/posture-analysis', icon: Scan, labelKey: 'nav.postureAnalysis' },
-  { href: '/posture-analysis/history', icon: ClipboardList, labelKey: 'nav.analysisHistory' },
   { href: '/exercise/list', icon: Dumbbell, labelKey: 'nav.exercise' },
-  { href: '/exercise/hand-rehab', icon: Hand, labelKey: 'nav.handRehab' },
-  { href: '/rom-measurement', icon: Ruler, labelKey: 'nav.romMeasurement' },
-  { href: '/gait-analysis', icon: Footprints, labelKey: 'nav.gaitAnalysis' },
-  { href: '/avatar', icon: PersonStanding, labelKey: 'nav.avatar' },
+  { href: '/gait-analysis', icon: ClipboardList, labelKey: 'nav.assessmentTools' },
   { href: '/exercise/games', icon: Gamepad2, labelKey: 'nav.games' },
-  { href: '/history', icon: History, labelKey: 'nav.history' },
-  { href: '/prediction', icon: Brain, labelKey: 'nav.prediction' },
+  { href: '/data-records', icon: Database, labelKey: 'nav.dataRecords' },
+  { href: '/patient-guide', icon: UserCheck, labelKey: 'nav.patientGuide' },
   { href: '/settings', icon: Settings, labelKey: 'nav.settings' },
 ]
 
@@ -107,9 +99,10 @@ export function Sidebar() {
       {/* Navigation */}
       <nav className="flex-1 space-y-1 px-3 py-4">
         {navItems.map((item) => {
-          // Exact match for specific routes, prefix match for parent routes (except posture-analysis which has sub-routes)
           const isActive = item.href === '/posture-analysis'
-            ? pathname === '/posture-analysis'
+            ? pathname === '/posture-analysis' || pathname.startsWith('/posture-analysis/')
+            : item.href === '/exercise/list'
+            ? pathname === '/exercise/list' || pathname === '/exercise/workout'
             : pathname === item.href || pathname.startsWith(item.href + '/')
           return (
             <Link

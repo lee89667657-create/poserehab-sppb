@@ -37,204 +37,73 @@ export const POSE_LANDMARKS = {
   RIGHT_FOOT_INDEX: 32,
 }
 
-// 관절 카테고리 정보
+// 관절 카테고리 정보 (평가지 기준)
 export const JOINT_CATEGORIES: JointCategoryInfo[] = [
-  {
-    id: 'neck',
-    nameEn: 'Neck',
-    nameKo: '목',
-    icon: '🦴',
-    movements: [
-      'neck_flexion',
-      'neck_extension',
-      'neck_rotation_left',
-      'neck_rotation_right',
-      'neck_lateral_left',
-      'neck_lateral_right',
-    ],
-  },
+  // === 상지 (Upper Extremity) ===
   {
     id: 'shoulder',
+    extremity: 'upper',
     nameEn: 'Shoulder',
     nameKo: '어깨',
     icon: '💪',
-    movements: [
-      'shoulder_flexion',
-      'shoulder_extension',
-      'shoulder_abduction',
-      'shoulder_adduction',
-      'shoulder_internal_rotation',
-      'shoulder_external_rotation',
-    ],
+    movements: ['shoulder_flexion', 'shoulder_extension'],
   },
   {
     id: 'elbow',
+    extremity: 'upper',
     nameEn: 'Elbow',
     nameKo: '팔꿈치',
     icon: '🦾',
-    movements: ['elbow_flexion', 'elbow_extension'],
+    movements: ['elbow_flexion'],
   },
   {
     id: 'wrist',
+    extremity: 'upper',
     nameEn: 'Wrist',
     nameKo: '손목',
     icon: '✋',
-    movements: [
-      'wrist_flexion',
-      'wrist_extension',
-      'wrist_radial_deviation',
-      'wrist_ulnar_deviation',
-    ],
+    movements: ['wrist_flexion', 'wrist_extension'],
   },
   {
+    id: 'finger',
+    extremity: 'upper',
+    nameEn: 'Finger',
+    nameKo: '손가락',
+    icon: '🖐️',
+    movements: ['finger_mcp_flexion', 'finger_pip_flexion'],
+  },
+  // === 하지 (Lower Extremity) ===
+  {
     id: 'hip',
+    extremity: 'lower',
     nameEn: 'Hip',
     nameKo: '고관절',
     icon: '🦵',
-    movements: [
-      'hip_flexion',
-      'hip_extension',
-      'hip_abduction',
-      'hip_adduction',
-      'hip_internal_rotation',
-      'hip_external_rotation',
-    ],
+    movements: ['hip_flexion', 'hip_abduction'],
   },
   {
     id: 'knee',
+    extremity: 'lower',
     nameEn: 'Knee',
     nameKo: '무릎',
     icon: '🦿',
-    movements: ['knee_flexion', 'knee_extension'],
+    movements: ['knee_flexion'],
   },
   {
     id: 'ankle',
+    extremity: 'lower',
     nameEn: 'Ankle',
     nameKo: '발목',
     icon: '🦶',
     movements: ['ankle_dorsiflexion', 'ankle_plantarflexion'],
   },
-  {
-    id: 'spine',
-    nameEn: 'Spine/Lumbar',
-    nameKo: '척추/허리',
-    icon: '🔙',
-    movements: [
-      'spine_flexion',
-      'spine_extension',
-      'spine_lateral_left',
-      'spine_lateral_right',
-    ],
-  },
 ]
 
-// 전체 관절 움직임 데이터
+// 전체 관절 움직임 데이터 (평가지 기준)
 export const JOINT_MOVEMENTS: JointMovement[] = [
-  // === 목 (Neck) ===
-  {
-    id: 'neck_flexion',
-    category: 'neck',
-    nameEn: 'Neck Flexion',
-    nameKo: '목 굴곡',
-    descriptionEn: 'Tilting head forward (chin to chest)',
-    descriptionKo: '고개 숙이기 (턱을 가슴쪽으로)',
-    guideEn: 'Slowly lower your chin towards your chest',
-    guideKo: '천천히 턱을 가슴 쪽으로 내려주세요',
-    normalRange: { min: 0, max: 45 },
-    side: 'center',
-    landmarks: {
-      point1: POSE_LANDMARKS.NOSE,
-      point2: POSE_LANDMARKS.LEFT_SHOULDER, // 어깨 중심점 사용
-      point3: POSE_LANDMARKS.LEFT_HIP,
-    },
-  },
-  {
-    id: 'neck_extension',
-    category: 'neck',
-    nameEn: 'Neck Extension',
-    nameKo: '목 신전',
-    descriptionEn: 'Tilting head backward',
-    descriptionKo: '고개 젖히기',
-    guideEn: 'Slowly tilt your head backward looking up',
-    guideKo: '천천히 고개를 뒤로 젖혀 위를 바라보세요',
-    normalRange: { min: 0, max: 45 },
-    side: 'center',
-    landmarks: {
-      point1: POSE_LANDMARKS.NOSE,
-      point2: POSE_LANDMARKS.LEFT_SHOULDER,
-      point3: POSE_LANDMARKS.LEFT_HIP,
-    },
-  },
-  {
-    id: 'neck_rotation_left',
-    category: 'neck',
-    nameEn: 'Neck Rotation (Left)',
-    nameKo: '목 좌회전',
-    descriptionEn: 'Turning head to the left',
-    descriptionKo: '고개를 왼쪽으로 돌리기',
-    guideEn: 'Turn your head to look over your left shoulder',
-    guideKo: '왼쪽 어깨 너머를 바라보도록 고개를 돌려주세요',
-    normalRange: { min: 0, max: 80 },
-    side: 'left',
-    landmarks: {
-      point1: POSE_LANDMARKS.LEFT_EAR,
-      point2: POSE_LANDMARKS.NOSE,
-      point3: POSE_LANDMARKS.RIGHT_EAR,
-    },
-  },
-  {
-    id: 'neck_rotation_right',
-    category: 'neck',
-    nameEn: 'Neck Rotation (Right)',
-    nameKo: '목 우회전',
-    descriptionEn: 'Turning head to the right',
-    descriptionKo: '고개를 오른쪽으로 돌리기',
-    guideEn: 'Turn your head to look over your right shoulder',
-    guideKo: '오른쪽 어깨 너머를 바라보도록 고개를 돌려주세요',
-    normalRange: { min: 0, max: 80 },
-    side: 'right',
-    landmarks: {
-      point1: POSE_LANDMARKS.RIGHT_EAR,
-      point2: POSE_LANDMARKS.NOSE,
-      point3: POSE_LANDMARKS.LEFT_EAR,
-    },
-  },
-  {
-    id: 'neck_lateral_left',
-    category: 'neck',
-    nameEn: 'Neck Lateral Flexion (Left)',
-    nameKo: '목 좌측굴',
-    descriptionEn: 'Tilting ear toward left shoulder',
-    descriptionKo: '왼쪽 귀를 왼쪽 어깨쪽으로',
-    guideEn: 'Tilt your head bringing your left ear toward your left shoulder',
-    guideKo: '왼쪽 귀를 왼쪽 어깨 쪽으로 기울여주세요',
-    normalRange: { min: 0, max: 45 },
-    side: 'left',
-    landmarks: {
-      point1: POSE_LANDMARKS.NOSE,
-      point2: POSE_LANDMARKS.LEFT_SHOULDER,
-      point3: POSE_LANDMARKS.LEFT_HIP,
-    },
-  },
-  {
-    id: 'neck_lateral_right',
-    category: 'neck',
-    nameEn: 'Neck Lateral Flexion (Right)',
-    nameKo: '목 우측굴',
-    descriptionEn: 'Tilting ear toward right shoulder',
-    descriptionKo: '오른쪽 귀를 오른쪽 어깨쪽으로',
-    guideEn: 'Tilt your head bringing your right ear toward your right shoulder',
-    guideKo: '오른쪽 귀를 오른쪽 어깨 쪽으로 기울여주세요',
-    normalRange: { min: 0, max: 45 },
-    side: 'right',
-    landmarks: {
-      point1: POSE_LANDMARKS.NOSE,
-      point2: POSE_LANDMARKS.RIGHT_SHOULDER,
-      point3: POSE_LANDMARKS.RIGHT_HIP,
-    },
-  },
+  // === 상지 (Upper Extremity) ===
 
-  // === 어깨 (Shoulder) ===
+  // 1. 어깨 굴곡/신전 (Shoulder Flexion/Extension)
   {
     id: 'shoulder_flexion',
     category: 'shoulder',
@@ -246,6 +115,7 @@ export const JOINT_MOVEMENTS: JointMovement[] = [
     guideKo: '팔을 앞으로 천천히 들어올려주세요',
     normalRange: { min: 0, max: 180 },
     side: 'left',
+    cameraMeasurable: true,
     landmarks: {
       point1: POSE_LANDMARKS.LEFT_HIP,
       point2: POSE_LANDMARKS.LEFT_SHOULDER,
@@ -258,87 +128,20 @@ export const JOINT_MOVEMENTS: JointMovement[] = [
     nameEn: 'Shoulder Extension',
     nameKo: '어깨 신전',
     descriptionEn: 'Moving arm backward',
-    descriptionKo: '팔을 뒤로',
+    descriptionKo: '팔을 뒤로 뻗기',
     guideEn: 'Move your arm backward behind your body',
     guideKo: '팔을 뒤로 천천히 뻗어주세요',
     normalRange: { min: 0, max: 60 },
     side: 'left',
+    cameraMeasurable: true,
     landmarks: {
       point1: POSE_LANDMARKS.LEFT_HIP,
       point2: POSE_LANDMARKS.LEFT_SHOULDER,
       point3: POSE_LANDMARKS.LEFT_ELBOW,
-    },
-  },
-  {
-    id: 'shoulder_abduction',
-    category: 'shoulder',
-    nameEn: 'Shoulder Abduction',
-    nameKo: '어깨 외전',
-    descriptionEn: 'Raising arm sideways',
-    descriptionKo: '팔을 옆으로 벌리기',
-    guideEn: 'Raise your arm out to the side and up',
-    guideKo: '팔을 옆으로 천천히 들어올려주세요',
-    normalRange: { min: 0, max: 180 },
-    side: 'left',
-    landmarks: {
-      point1: POSE_LANDMARKS.LEFT_HIP,
-      point2: POSE_LANDMARKS.LEFT_SHOULDER,
-      point3: POSE_LANDMARKS.LEFT_ELBOW,
-    },
-  },
-  {
-    id: 'shoulder_adduction',
-    category: 'shoulder',
-    nameEn: 'Shoulder Adduction',
-    nameKo: '어깨 내전',
-    descriptionEn: 'Moving arm toward body',
-    descriptionKo: '팔을 몸쪽으로',
-    guideEn: 'Bring your arm across your body',
-    guideKo: '팔을 몸 중심 쪽으로 가져오세요',
-    normalRange: { min: 0, max: 50 },
-    side: 'left',
-    landmarks: {
-      point1: POSE_LANDMARKS.RIGHT_SHOULDER,
-      point2: POSE_LANDMARKS.LEFT_SHOULDER,
-      point3: POSE_LANDMARKS.LEFT_ELBOW,
-    },
-  },
-  {
-    id: 'shoulder_internal_rotation',
-    category: 'shoulder',
-    nameEn: 'Shoulder Internal Rotation',
-    nameKo: '어깨 내회전',
-    descriptionEn: 'Rotating arm inward',
-    descriptionKo: '팔 안쪽으로 회전',
-    guideEn: 'With elbow bent at 90°, rotate your forearm toward your body',
-    guideKo: '팔꿈치를 90° 구부린 상태에서 전완을 몸 쪽으로 회전시켜주세요',
-    normalRange: { min: 0, max: 70 },
-    side: 'left',
-    landmarks: {
-      point1: POSE_LANDMARKS.LEFT_SHOULDER,
-      point2: POSE_LANDMARKS.LEFT_ELBOW,
-      point3: POSE_LANDMARKS.LEFT_WRIST,
-    },
-  },
-  {
-    id: 'shoulder_external_rotation',
-    category: 'shoulder',
-    nameEn: 'Shoulder External Rotation',
-    nameKo: '어깨 외회전',
-    descriptionEn: 'Rotating arm outward',
-    descriptionKo: '팔 바깥쪽으로 회전',
-    guideEn: 'With elbow bent at 90°, rotate your forearm away from your body',
-    guideKo: '팔꿈치를 90° 구부린 상태에서 전완을 몸 바깥쪽으로 회전시켜주세요',
-    normalRange: { min: 0, max: 90 },
-    side: 'left',
-    landmarks: {
-      point1: POSE_LANDMARKS.LEFT_SHOULDER,
-      point2: POSE_LANDMARKS.LEFT_ELBOW,
-      point3: POSE_LANDMARKS.LEFT_WRIST,
     },
   },
 
-  // === 팔꿈치 (Elbow) ===
+  // 2. 팔꿈치 굴곡 (Elbow Flexion)
   {
     id: 'elbow_flexion',
     category: 'elbow',
@@ -350,23 +153,7 @@ export const JOINT_MOVEMENTS: JointMovement[] = [
     guideKo: '팔꿈치를 구부려 손을 어깨 쪽으로 가져오세요',
     normalRange: { min: 0, max: 150 },
     side: 'left',
-    landmarks: {
-      point1: POSE_LANDMARKS.LEFT_SHOULDER,
-      point2: POSE_LANDMARKS.LEFT_ELBOW,
-      point3: POSE_LANDMARKS.LEFT_WRIST,
-    },
-  },
-  {
-    id: 'elbow_extension',
-    category: 'elbow',
-    nameEn: 'Elbow Extension',
-    nameKo: '팔꿈치 신전',
-    descriptionEn: 'Straightening the elbow',
-    descriptionKo: '팔꿈치 펴기',
-    guideEn: 'Straighten your arm completely',
-    guideKo: '팔을 완전히 펴주세요',
-    normalRange: { min: 0, max: 0 },
-    side: 'left',
+    cameraMeasurable: true,
     landmarks: {
       point1: POSE_LANDMARKS.LEFT_SHOULDER,
       point2: POSE_LANDMARKS.LEFT_ELBOW,
@@ -374,7 +161,7 @@ export const JOINT_MOVEMENTS: JointMovement[] = [
     },
   },
 
-  // === 손목 (Wrist) ===
+  // 3. 손목 굴곡/신전 (Wrist Flexion/Extension)
   {
     id: 'wrist_flexion',
     category: 'wrist',
@@ -386,6 +173,7 @@ export const JOINT_MOVEMENTS: JointMovement[] = [
     guideKo: '손바닥이 전완 쪽으로 향하도록 손목을 구부려주세요',
     normalRange: { min: 0, max: 80 },
     side: 'left',
+    cameraMeasurable: true,
     landmarks: {
       point1: POSE_LANDMARKS.LEFT_ELBOW,
       point2: POSE_LANDMARKS.LEFT_WRIST,
@@ -403,48 +191,47 @@ export const JOINT_MOVEMENTS: JointMovement[] = [
     guideKo: '손등이 전완 쪽으로 향하도록 손목을 젖혀주세요',
     normalRange: { min: 0, max: 70 },
     side: 'left',
+    cameraMeasurable: true,
     landmarks: {
       point1: POSE_LANDMARKS.LEFT_ELBOW,
       point2: POSE_LANDMARKS.LEFT_WRIST,
       point3: POSE_LANDMARKS.LEFT_INDEX,
     },
   },
+
+  // 4. 손가락 굴곡 (Finger MCP/PIP Flexion) — 카메라 측정 불가
   {
-    id: 'wrist_radial_deviation',
-    category: 'wrist',
-    nameEn: 'Radial Deviation',
-    nameKo: '요골 편위',
-    descriptionEn: 'Tilting wrist toward thumb side',
-    descriptionKo: '엄지손가락 방향으로 손목 기울이기',
-    guideEn: 'Tilt your wrist toward your thumb',
-    guideKo: '손목을 엄지손가락 방향으로 기울여주세요',
-    normalRange: { min: 0, max: 20 },
+    id: 'finger_mcp_flexion',
+    category: 'finger',
+    nameEn: 'Finger MCP Flexion',
+    nameKo: '손가락 MCP 굴곡',
+    descriptionEn: 'Bending fingers at the knuckle joint',
+    descriptionKo: '손가락 중수지절 관절 구부리기',
+    guideEn: 'Bend your fingers at the knuckle joints',
+    guideKo: '손가락을 주먹 쥐듯이 구부려주세요',
+    normalRange: { min: 0, max: 90 },
     side: 'left',
-    landmarks: {
-      point1: POSE_LANDMARKS.LEFT_ELBOW,
-      point2: POSE_LANDMARKS.LEFT_WRIST,
-      point3: POSE_LANDMARKS.LEFT_THUMB,
-    },
+    cameraMeasurable: false,
+    landmarks: { point1: 0, point2: 0, point3: 0 },
   },
   {
-    id: 'wrist_ulnar_deviation',
-    category: 'wrist',
-    nameEn: 'Ulnar Deviation',
-    nameKo: '척골 편위',
-    descriptionEn: 'Tilting wrist toward pinky side',
-    descriptionKo: '새끼손가락 방향으로 손목 기울이기',
-    guideEn: 'Tilt your wrist toward your pinky',
-    guideKo: '손목을 새끼손가락 방향으로 기울여주세요',
-    normalRange: { min: 0, max: 30 },
+    id: 'finger_pip_flexion',
+    category: 'finger',
+    nameEn: 'Finger PIP Flexion',
+    nameKo: '손가락 PIP 굴곡',
+    descriptionEn: 'Bending fingers at the middle joint',
+    descriptionKo: '손가락 근위지절 관절 구부리기',
+    guideEn: 'Bend your fingers at the middle joints',
+    guideKo: '손가락 중간 마디를 구부려주세요',
+    normalRange: { min: 0, max: 100 },
     side: 'left',
-    landmarks: {
-      point1: POSE_LANDMARKS.LEFT_ELBOW,
-      point2: POSE_LANDMARKS.LEFT_WRIST,
-      point3: POSE_LANDMARKS.LEFT_PINKY,
-    },
+    cameraMeasurable: false,
+    landmarks: { point1: 0, point2: 0, point3: 0 },
   },
 
-  // === 고관절 (Hip) ===
+  // === 하지 (Lower Extremity) ===
+
+  // 5. 고관절 굴곡/외전 (Hip Flexion/Abduction)
   {
     id: 'hip_flexion',
     category: 'hip',
@@ -456,23 +243,7 @@ export const JOINT_MOVEMENTS: JointMovement[] = [
     guideKo: '등을 곧게 유지하면서 무릎을 가슴 쪽으로 들어올려주세요',
     normalRange: { min: 0, max: 120 },
     side: 'left',
-    landmarks: {
-      point1: POSE_LANDMARKS.LEFT_SHOULDER,
-      point2: POSE_LANDMARKS.LEFT_HIP,
-      point3: POSE_LANDMARKS.LEFT_KNEE,
-    },
-  },
-  {
-    id: 'hip_extension',
-    category: 'hip',
-    nameEn: 'Hip Extension',
-    nameKo: '고관절 신전',
-    descriptionEn: 'Moving leg backward',
-    descriptionKo: '다리를 뒤로 뻗기',
-    guideEn: 'Move your leg backward behind your body',
-    guideKo: '다리를 뒤로 천천히 뻗어주세요',
-    normalRange: { min: 0, max: 30 },
-    side: 'left',
+    cameraMeasurable: true,
     landmarks: {
       point1: POSE_LANDMARKS.LEFT_SHOULDER,
       point2: POSE_LANDMARKS.LEFT_HIP,
@@ -490,65 +261,15 @@ export const JOINT_MOVEMENTS: JointMovement[] = [
     guideKo: '다리를 옆으로 벌려주세요',
     normalRange: { min: 0, max: 45 },
     side: 'left',
+    cameraMeasurable: true,
     landmarks: {
       point1: POSE_LANDMARKS.RIGHT_HIP,
       point2: POSE_LANDMARKS.LEFT_HIP,
       point3: POSE_LANDMARKS.LEFT_KNEE,
-    },
-  },
-  {
-    id: 'hip_adduction',
-    category: 'hip',
-    nameEn: 'Hip Adduction',
-    nameKo: '고관절 내전',
-    descriptionEn: 'Moving leg toward center',
-    descriptionKo: '다리를 안쪽으로 모으기',
-    guideEn: 'Move your leg toward and across your body',
-    guideKo: '다리를 몸 중심 쪽으로 모아주세요',
-    normalRange: { min: 0, max: 30 },
-    side: 'left',
-    landmarks: {
-      point1: POSE_LANDMARKS.RIGHT_HIP,
-      point2: POSE_LANDMARKS.LEFT_HIP,
-      point3: POSE_LANDMARKS.LEFT_KNEE,
-    },
-  },
-  {
-    id: 'hip_internal_rotation',
-    category: 'hip',
-    nameEn: 'Hip Internal Rotation',
-    nameKo: '고관절 내회전',
-    descriptionEn: 'Rotating leg inward',
-    descriptionKo: '다리 안쪽으로 회전',
-    guideEn: 'With knee bent, rotate your lower leg outward',
-    guideKo: '무릎을 구부린 상태에서 아래 다리를 바깥쪽으로 회전시켜주세요',
-    normalRange: { min: 0, max: 45 },
-    side: 'left',
-    landmarks: {
-      point1: POSE_LANDMARKS.LEFT_HIP,
-      point2: POSE_LANDMARKS.LEFT_KNEE,
-      point3: POSE_LANDMARKS.LEFT_ANKLE,
-    },
-  },
-  {
-    id: 'hip_external_rotation',
-    category: 'hip',
-    nameEn: 'Hip External Rotation',
-    nameKo: '고관절 외회전',
-    descriptionEn: 'Rotating leg outward',
-    descriptionKo: '다리 바깥쪽으로 회전',
-    guideEn: 'With knee bent, rotate your lower leg inward',
-    guideKo: '무릎을 구부린 상태에서 아래 다리를 안쪽으로 회전시켜주세요',
-    normalRange: { min: 0, max: 45 },
-    side: 'left',
-    landmarks: {
-      point1: POSE_LANDMARKS.LEFT_HIP,
-      point2: POSE_LANDMARKS.LEFT_KNEE,
-      point3: POSE_LANDMARKS.LEFT_ANKLE,
     },
   },
 
-  // === 무릎 (Knee) ===
+  // 6. 무릎 굴곡 (Knee Flexion)
   {
     id: 'knee_flexion',
     category: 'knee',
@@ -560,23 +281,7 @@ export const JOINT_MOVEMENTS: JointMovement[] = [
     guideKo: '발뒤꿈치를 엉덩이 쪽으로 가져가며 무릎을 구부려주세요',
     normalRange: { min: 0, max: 135 },
     side: 'left',
-    landmarks: {
-      point1: POSE_LANDMARKS.LEFT_HIP,
-      point2: POSE_LANDMARKS.LEFT_KNEE,
-      point3: POSE_LANDMARKS.LEFT_ANKLE,
-    },
-  },
-  {
-    id: 'knee_extension',
-    category: 'knee',
-    nameEn: 'Knee Extension',
-    nameKo: '무릎 신전',
-    descriptionEn: 'Straightening the knee',
-    descriptionKo: '무릎 펴기',
-    guideEn: 'Straighten your leg completely',
-    guideKo: '다리를 완전히 펴주세요',
-    normalRange: { min: 0, max: 0 },
-    side: 'left',
+    cameraMeasurable: true,
     landmarks: {
       point1: POSE_LANDMARKS.LEFT_HIP,
       point2: POSE_LANDMARKS.LEFT_KNEE,
@@ -584,7 +289,7 @@ export const JOINT_MOVEMENTS: JointMovement[] = [
     },
   },
 
-  // === 발목 (Ankle) ===
+  // 7. 발목 배굴/저굴 (Ankle Dorsiflexion/Plantarflexion)
   {
     id: 'ankle_dorsiflexion',
     category: 'ankle',
@@ -596,6 +301,7 @@ export const JOINT_MOVEMENTS: JointMovement[] = [
     guideKo: '발끝을 정강이 쪽으로 당겨주세요',
     normalRange: { min: 0, max: 20 },
     side: 'left',
+    cameraMeasurable: true,
     landmarks: {
       point1: POSE_LANDMARKS.LEFT_KNEE,
       point2: POSE_LANDMARKS.LEFT_ANKLE,
@@ -613,80 +319,11 @@ export const JOINT_MOVEMENTS: JointMovement[] = [
     guideKo: '발끝을 아래로 향하게 해주세요',
     normalRange: { min: 0, max: 50 },
     side: 'left',
+    cameraMeasurable: true,
     landmarks: {
       point1: POSE_LANDMARKS.LEFT_KNEE,
       point2: POSE_LANDMARKS.LEFT_ANKLE,
       point3: POSE_LANDMARKS.LEFT_FOOT_INDEX,
-    },
-  },
-
-  // === 척추/허리 (Spine) ===
-  {
-    id: 'spine_flexion',
-    category: 'spine',
-    nameEn: 'Spine Flexion',
-    nameKo: '척추 굴곡',
-    descriptionEn: 'Bending forward',
-    descriptionKo: '앞으로 숙이기',
-    guideEn: 'Bend forward from your waist reaching toward your toes',
-    guideKo: '허리에서부터 앞으로 숙여 발끝을 향해 손을 뻗어주세요',
-    normalRange: { min: 0, max: 80 },
-    side: 'center',
-    landmarks: {
-      point1: POSE_LANDMARKS.LEFT_SHOULDER,
-      point2: POSE_LANDMARKS.LEFT_HIP,
-      point3: POSE_LANDMARKS.LEFT_KNEE,
-    },
-  },
-  {
-    id: 'spine_extension',
-    category: 'spine',
-    nameEn: 'Spine Extension',
-    nameKo: '척추 신전',
-    descriptionEn: 'Bending backward',
-    descriptionKo: '뒤로 젖히기',
-    guideEn: 'Gently arch your back bending backward',
-    guideKo: '천천히 등을 뒤로 젖혀주세요',
-    normalRange: { min: 0, max: 30 },
-    side: 'center',
-    landmarks: {
-      point1: POSE_LANDMARKS.LEFT_SHOULDER,
-      point2: POSE_LANDMARKS.LEFT_HIP,
-      point3: POSE_LANDMARKS.LEFT_KNEE,
-    },
-  },
-  {
-    id: 'spine_lateral_left',
-    category: 'spine',
-    nameEn: 'Spine Lateral Flexion (Left)',
-    nameKo: '척추 좌측굴',
-    descriptionEn: 'Bending to the left side',
-    descriptionKo: '왼쪽으로 옆으로 굽히기',
-    guideEn: 'Bend your body to the left side sliding your hand down your leg',
-    guideKo: '손을 다리를 따라 내리면서 몸을 왼쪽으로 기울여주세요',
-    normalRange: { min: 0, max: 35 },
-    side: 'left',
-    landmarks: {
-      point1: POSE_LANDMARKS.LEFT_SHOULDER,
-      point2: POSE_LANDMARKS.LEFT_HIP,
-      point3: POSE_LANDMARKS.LEFT_KNEE,
-    },
-  },
-  {
-    id: 'spine_lateral_right',
-    category: 'spine',
-    nameEn: 'Spine Lateral Flexion (Right)',
-    nameKo: '척추 우측굴',
-    descriptionEn: 'Bending to the right side',
-    descriptionKo: '오른쪽으로 옆으로 굽히기',
-    guideEn: 'Bend your body to the right side sliding your hand down your leg',
-    guideKo: '손을 다리를 따라 내리면서 몸을 오른쪽으로 기울여주세요',
-    normalRange: { min: 0, max: 35 },
-    side: 'right',
-    landmarks: {
-      point1: POSE_LANDMARKS.RIGHT_SHOULDER,
-      point2: POSE_LANDMARKS.RIGHT_HIP,
-      point3: POSE_LANDMARKS.RIGHT_KNEE,
     },
   },
 ]
@@ -704,6 +341,14 @@ export function getMovementsByCategory(category: JointCategory): JointMovement[]
 // 카테고리 정보 찾기
 export function getCategoryInfo(category: JointCategory): JointCategoryInfo | undefined {
   return JOINT_CATEGORIES.find((c) => c.id === category)
+}
+
+// 카메라 측정 가능한 움직임만 필터링
+export function getCameraMeasurableMovements(category?: JointCategory): JointMovement[] {
+  const movements = category
+    ? JOINT_MOVEMENTS.filter((m) => m.category === category)
+    : JOINT_MOVEMENTS
+  return movements.filter((m) => m.cameraMeasurable)
 }
 
 // 오른쪽 버전의 랜드마크 인덱스 가져오기 (왼쪽 <-> 오른쪽 미러링)

@@ -1,395 +1,198 @@
 'use client'
 
-import { useState, useCallback, useEffect, useRef } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { History, Info, ChevronDown, ChevronUp, Video } from 'lucide-react'
-import { MainLayout } from '@/components/layout/main-layout'
-import { GaitCamera } from '@/components/gait/gait-camera'
-import { GaitDashboard } from '@/components/gait/gait-dashboard'
-import { PhaseIndicator } from '@/components/gait/phase-indicator'
 import {
-  KneeAngleChart,
-  HipAngleChart,
-  AnkleHeightChart,
-  SymmetryChart,
-} from '@/components/gait/gait-charts'
-import { useGaitStore } from '@/stores/gait-store'
+  History,
+  Scale,
+  Dumbbell,
+  Ruler,
+  PersonStanding,
+  ClipboardList,
+  Hand,
+  Stethoscope,
+  Briefcase,
+} from 'lucide-react'
+import { MainLayout } from '@/components/layout/main-layout'
+import { Button } from '@/components/ui/button'
+import { BBSAssessment } from '@/components/bbs'
+import { MMTAssessment, ROMAssessment, FACAssessment } from '@/components/assessments'
+import { MBIAssessment } from '@/components/assessments/mbi-assessment'
+import { HandFunctionAssessment } from '@/components/assessments/hand-function-assessment'
 import { useTranslation } from '@/hooks/use-translation'
-import { getGaitAnalyzer, resetGaitAnalyzer } from '@/lib/analysis/gait-analyzer'
-import type { Landmark } from '@/types/posture'
+import { cn } from '@/lib/utils'
 import Link from 'next/link'
 
-export default function GaitAnalysisPage() {
-  const router = useRouter()
+type TherapyCategory = 'physical' | 'occupational'
+type PhysicalAssessment = 'mmt' | 'rom' | 'bbs' | 'fac'
+type OccupationalAssessment = 'mbi' | 'handFunction'
+type AssessmentType = PhysicalAssessment | OccupationalAssessment
+
+const PHYSICAL_TABS = [
+  { id: 'mmt' as const, label: 'MMT', icon: Dumbbell, desc: '도수근력', descEn: 'Muscle' },
+  { id: 'rom' as const, label: 'ROM', icon: Ruler, desc: '관절가동', descEn: 'Range' },
+  { id: 'bbs' as const, label: 'BBS', icon: Scale, desc: '균형척도', descEn: 'Balance' },
+  { id: 'fac' as const, label: 'FAC', icon: PersonStanding, desc: '보행분류', descEn: 'Gait' },
+]
+
+const OCCUPATIONAL_TABS = [
+  { id: 'mbi' as const, label: 'MBI', icon: ClipboardList, desc: '일상생활', descEn: 'ADL' },
+  { id: 'handFunction' as const, label: 'Hand', icon: Hand, desc: '손기능', descEn: 'Hand' },
+]
+
+export default function AssessmentToolsPage() {
   const { language } = useTranslation()
-  const analyzerRef = useRef(getGaitAnalyzer())
+  const [category, setCategory] = useState<TherapyCategory>('physical')
+  const [physicalAssessment, setPhysicalAssessment] = useState<PhysicalAssessment>('mmt')
+  const [occupationalAssessment, setOccupationalAssessment] = useState<OccupationalAssessment>('mbi')
 
-  // 스토어 상태
-  const {
-    isActive,
-    currentMode,
-    currentMeasurements,
-    currentPhase,
-    frameHistory,
-    showSkeleton,
-    showPhaseIndicator,
-    targetFps,
-    setIsActive,
-    setCurrentMode,
-    startSession,
-    addFrame,
-    updateMeasurements,
-    updatePhase,
-    saveAnalysis,
-    resetFrameHistory,
-  } = useGaitStore()
-
-  // 로컬 상태
-  const [analysisTime, setAnalysisTime] = useState(0)
-  const [isGuideOpen, setIsGuideOpen] = useState(false)
-  const analysisStartTime = useRef<number>(0)
-  const timerRef = useRef<NodeJS.Timeout | null>(null)
-
-  // 분석 시작
-  const handleAnalysisStart = useCallback(() => {
-    resetGaitAnalyzer()
-    analyzerRef.current = getGaitAnalyzer()
-    startSession(currentMode)
-    analysisStartTime.current = Date.now()
-    setAnalysisTime(0)
-
-    // 타이머 시작
-    timerRef.current = setInterval(() => {
-      setAnalysisTime(Math.floor((Date.now() - analysisStartTime.current) / 1000))
-    }, 1000)
-  }, [currentMode, startSession])
-
-  // 분석 중지
-  const handleAnalysisStop = useCallback(() => {
-    setIsActive(false)
-
-    // 타이머 정지
-    if (timerRef.current) {
-      clearInterval(timerRef.current)
-      timerRef.current = null
-    }
-
-    // 분석 결과 생성 및 저장
-    const result = analyzerRef.current.generateAnalysisResult()
-    if (result && result.totalStrides > 0) {
-      saveAnalysis(result)
-      // 결과 페이지로 이동
-      router.push(`/gait-analysis/result?id=${result.id}`)
-    }
-
-    setAnalysisTime(0)
-  }, [setIsActive, saveAnalysis, router])
-
-  // 프레임 처리
-  const handleFrame = useCallback(
-    (landmarks: Landmark[], timestamp: number) => {
-      try {
-        const frame = analyzerRef.current.processFrame(landmarks, timestamp)
-        addFrame(frame)
-
-        // 측정값과 보행 단계 업데이트
-        if (frame.measurements) {
-          const fullMeasurements = analyzerRef.current.getCurrentMeasurements()
-          if (fullMeasurements) {
-            updateMeasurements(fullMeasurements)
-          }
-        }
-
-        if (frame.phase) {
-          updatePhase(frame.phase)
-        }
-      } catch (error) {
-        console.error('Frame processing error:', error)
-      }
-    },
-    [addFrame, updateMeasurements, updatePhase]
-  )
-
-  // 모드 변경
-  const handleModeChange = useCallback(
-    (mode: 'webcam' | 'video') => {
-      if (isActive) {
-        handleAnalysisStop()
-      }
-      setCurrentMode(mode)
-    },
-    [isActive, handleAnalysisStop, setCurrentMode]
-  )
-
-  // 영상 변경 시 분석 결과 초기화
-  const handleVideoChange = useCallback(() => {
-    resetGaitAnalyzer()
-    analyzerRef.current = getGaitAnalyzer()
-    resetFrameHistory() // 프레임 히스토리 초기화
-    setAnalysisTime(0)
-  }, [resetFrameHistory])
-
-  // 컴포넌트 언마운트 시 정리
-  useEffect(() => {
-    return () => {
-      if (timerRef.current) {
-        clearInterval(timerRef.current)
-      }
-    }
-  }, [])
-
-  // 시간 포맷
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60)
-    const secs = seconds % 60
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
-  }
+  const currentAssessment: AssessmentType = category === 'physical' ? physicalAssessment : occupationalAssessment
 
   return (
     <MainLayout>
-      <div className="mx-auto max-w-7xl space-y-6 p-4 lg:p-6">
+      <div className="mx-auto max-w-6xl space-y-6 p-4 lg:p-6">
         {/* 헤더 */}
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-text-primary text-2xl font-bold">
-              {language === 'ko' ? '보행 분석' : 'Gait Analysis'}
+              {language === 'ko' ? '평가 도구' : 'Assessment Tools'}
             </h1>
             <p className="text-text-secondary text-sm">
               {language === 'ko'
-                ? 'MediaPipe Pose를 사용한 실시간 보행 분석'
-                : 'Real-time gait analysis using MediaPipe Pose'}
+                ? '물리치료 및 작업치료 평가'
+                : 'Physical & Occupational Therapy Assessments'}
             </p>
           </div>
 
-          <div className="flex items-center gap-2">
-            <Link
-              href="/gait-analysis/history"
-              className="text-text-secondary hover:text-text-primary flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm transition-colors hover:bg-surface"
-            >
-              <History className="h-4 w-4" />
+          <Link href="/gait-analysis/history">
+            <Button variant="outline" size="sm">
+              <History className="mr-1.5 h-4 w-4" />
               {language === 'ko' ? '기록' : 'History'}
-            </Link>
+            </Button>
+          </Link>
+        </div>
+
+        {/* 치료 카테고리 탭 (물리치료 / 작업치료) */}
+        <div className="bg-surface rounded-xl border border-border p-1.5">
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              onClick={() => setCategory('physical')}
+              className={cn(
+                'flex items-center justify-center gap-2 rounded-lg px-4 py-3 font-medium transition-all',
+                category === 'physical'
+                  ? 'bg-primary text-white shadow-md'
+                  : 'text-text-secondary hover:bg-background hover:text-text-primary'
+              )}
+            >
+              <Stethoscope className="h-5 w-5" />
+              <div>
+                <div className="text-sm font-semibold">
+                  {language === 'ko' ? '물리치료' : 'Physical Therapy'}
+                </div>
+                <div className={cn('text-xs', category === 'physical' ? 'text-white/70' : 'text-text-secondary')}>
+                  MMT, ROM, BBS, FAC
+                </div>
+              </div>
+            </button>
+            <button
+              onClick={() => setCategory('occupational')}
+              className={cn(
+                'flex items-center justify-center gap-2 rounded-lg px-4 py-3 font-medium transition-all',
+                category === 'occupational'
+                  ? 'bg-primary text-white shadow-md'
+                  : 'text-text-secondary hover:bg-background hover:text-text-primary'
+              )}
+            >
+              <Briefcase className="h-5 w-5" />
+              <div>
+                <div className="text-sm font-semibold">
+                  {language === 'ko' ? '작업치료' : 'Occupational Therapy'}
+                </div>
+                <div className={cn('text-xs', category === 'occupational' ? 'text-white/70' : 'text-text-secondary')}>
+                  MBI, Hand Function
+                </div>
+              </div>
+            </button>
           </div>
         </div>
 
-        {/* 촬영 가이드 (접었다 펼 수 있음) */}
+        {/* 하위 평가 도구 탭 */}
         <motion.div
-          initial={{ opacity: 0, y: -10 }}
+          key={category}
+          initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-amber-500/10 rounded-xl border border-amber-500/30 overflow-hidden"
+          className="bg-surface rounded-xl border border-border p-1.5"
         >
-          <button
-            onClick={() => setIsGuideOpen(!isGuideOpen)}
-            className="w-full flex items-center justify-between p-3 hover:bg-amber-500/5 transition-colors"
-          >
-            <div className="flex items-center gap-2">
-              <Video className="h-5 w-5 text-amber-500" />
-              <span className="text-text-primary font-medium">
-                {isGuideOpen
-                  ? language === 'ko' ? '📹 촬영 가이드' : '📹 Recording Guide'
-                  : language === 'ko' ? '📹 촬영 가이드 보기' : '📹 View Recording Guide'}
-              </span>
+          {category === 'physical' ? (
+            <div className="grid grid-cols-4 gap-1">
+              {PHYSICAL_TABS.map((tab) => {
+                const Icon = tab.icon
+                const isActive = physicalAssessment === tab.id
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => setPhysicalAssessment(tab.id)}
+                    className={cn(
+                      'flex flex-col items-center justify-center gap-1 rounded-lg px-2 py-2.5 font-medium transition-all',
+                      isActive
+                        ? 'bg-primary text-white shadow-md'
+                        : 'text-text-secondary hover:bg-background hover:text-text-primary'
+                    )}
+                  >
+                    <Icon className="h-5 w-5" />
+                    <div className="text-xs font-semibold">{tab.label}</div>
+                    <div className={cn('text-[10px]', isActive ? 'text-white/80' : 'text-text-secondary')}>
+                      {language === 'ko' ? tab.desc : tab.descEn}
+                    </div>
+                  </button>
+                )
+              })}
             </div>
-            {isGuideOpen ? (
-              <ChevronUp className="h-5 w-5 text-text-secondary" />
-            ) : (
-              <ChevronDown className="h-5 w-5 text-text-secondary" />
-            )}
-          </button>
-          {isGuideOpen && (
-            <motion.div
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: 'auto', opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              className="px-4 pb-3"
-            >
-              <ul className="text-text-secondary space-y-1.5 text-sm">
-                <li className="flex items-center gap-2">
-                  <span className="text-amber-500">•</span>
-                  {language === 'ko'
-                    ? '측면에서 촬영해주세요 (옆에서)'
-                    : 'Record from the side'}
-                </li>
-                <li className="flex items-center gap-2">
-                  <span className="text-amber-500">•</span>
-                  {language === 'ko'
-                    ? '3~4m 거리를 걸어주세요'
-                    : 'Walk 3-4m distance'}
-                </li>
-                <li className="flex items-center gap-2">
-                  <span className="text-amber-500">•</span>
-                  {language === 'ko'
-                    ? '화면에 1명만 나오게 해주세요'
-                    : 'Only 1 person should be visible'}
-                </li>
-                <li className="flex items-center gap-2">
-                  <span className="text-amber-500">•</span>
-                  {language === 'ko'
-                    ? '카메라는 허리~가슴 높이에 고정'
-                    : 'Fix camera at waist~chest height'}
-                </li>
-              </ul>
-            </motion.div>
+          ) : (
+            <div className="grid grid-cols-2 gap-1">
+              {OCCUPATIONAL_TABS.map((tab) => {
+                const Icon = tab.icon
+                const isActive = occupationalAssessment === tab.id
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => setOccupationalAssessment(tab.id)}
+                    className={cn(
+                      'flex flex-col items-center justify-center gap-1 rounded-lg px-2 py-3 font-medium transition-all',
+                      isActive
+                        ? 'bg-primary text-white shadow-md'
+                        : 'text-text-secondary hover:bg-background hover:text-text-primary'
+                    )}
+                  >
+                    <Icon className="h-5 w-5" />
+                    <div className="text-xs font-semibold">{tab.label}</div>
+                    <div className={cn('text-[10px]', isActive ? 'text-white/80' : 'text-text-secondary')}>
+                      {language === 'ko' ? tab.desc : tab.descEn}
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
           )}
         </motion.div>
 
-        {/* 분석 시간 표시 */}
-        {isActive && (
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="flex items-center justify-center"
-          >
-            <div className="bg-surface rounded-full border border-border px-6 py-2">
-              <span className="text-text-secondary mr-2 text-sm">
-                {language === 'ko' ? '분석 시간' : 'Analysis Time'}:
-              </span>
-              <span className="text-text-primary text-lg font-bold tabular-nums">
-                {formatTime(analysisTime)}
-              </span>
-            </div>
-          </motion.div>
-        )}
+        {/* 평가 콘텐츠 */}
+        <motion.div
+          key={currentAssessment}
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.2 }}
+        >
+          {/* 물리치료 평가 */}
+          {currentAssessment === 'mmt' && <MMTAssessment />}
+          {currentAssessment === 'rom' && <ROMAssessment />}
+          {currentAssessment === 'bbs' && <BBSAssessment />}
+          {currentAssessment === 'fac' && <FACAssessment />}
 
-        {/* 메인 그리드 */}
-        <div className="grid gap-6 lg:grid-cols-3">
-          {/* 왼쪽: 카메라 뷰 */}
-          <div className="lg:col-span-2">
-            <div className="bg-surface rounded-2xl border border-border p-4">
-              <GaitCamera
-                mode={currentMode}
-                isAnalyzing={isActive}
-                showSkeleton={showSkeleton}
-                onModeChange={handleModeChange}
-                onAnalysisStart={handleAnalysisStart}
-                onAnalysisStop={handleAnalysisStop}
-                onVideoChange={handleVideoChange}
-                onFrame={handleFrame}
-                targetFps={targetFps}
-              />
-            </div>
-
-            {/* 실시간 차트 영역 - 분석 중이거나 데이터가 있을 때 표시 */}
-            {(isActive || frameHistory.length > 0) && (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="mt-6 grid gap-4 md:grid-cols-2"
-              >
-                <KneeAngleChart frames={frameHistory} />
-                <HipAngleChart frames={frameHistory} />
-                <AnkleHeightChart frames={frameHistory} />
-                <SymmetryChart measurements={currentMeasurements} />
-              </motion.div>
-            )}
-          </div>
-
-          {/* 오른쪽: 대시보드 */}
-          <div className="space-y-4">
-            {/* 측정값 대시보드 */}
-            <div className="bg-surface rounded-2xl border border-border p-4">
-              <h3 className="text-text-primary mb-4 font-medium">
-                {language === 'ko' ? '실시간 측정값' : 'Real-time Measurements'}
-              </h3>
-              <GaitDashboard measurements={currentMeasurements} showAll={false} />
-            </div>
-
-            {/* 보행 단계 표시 */}
-            {showPhaseIndicator && (
-              <div className="bg-surface rounded-2xl border border-border p-4">
-                <PhaseIndicator phaseState={currentPhase} />
-              </div>
-            )}
-
-            {/* 안내 카드 */}
-            {!isActive && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="bg-primary/5 rounded-2xl border border-primary/20 p-4"
-              >
-                <div className="mb-2 flex items-center gap-2">
-                  <Info className="h-5 w-5 text-primary" />
-                  <h4 className="text-text-primary font-medium">
-                    {language === 'ko' ? '측정 안내' : 'Measurement Guide'}
-                  </h4>
-                </div>
-                <ul className="text-text-secondary space-y-1 text-sm">
-                  <li>
-                    •{' '}
-                    {language === 'ko'
-                      ? '카메라에서 2-3m 거리에 위치하세요'
-                      : 'Stand 2-3m away from the camera'}
-                  </li>
-                  <li>
-                    •{' '}
-                    {language === 'ko'
-                      ? '측면이 보이도록 서주세요'
-                      : 'Stand sideways to show your profile'}
-                  </li>
-                  <li>
-                    •{' '}
-                    {language === 'ko'
-                      ? '자연스럽게 걸어주세요'
-                      : 'Walk naturally'}
-                  </li>
-                  <li>
-                    •{' '}
-                    {language === 'ko'
-                      ? '최소 10초 이상 분석하세요'
-                      : 'Analyze for at least 10 seconds'}
-                  </li>
-                </ul>
-              </motion.div>
-            )}
-
-            {/* 측정 중 추가 정보 */}
-            {isActive && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="bg-surface rounded-2xl border border-border p-4"
-              >
-                <h4 className="text-text-primary mb-3 font-medium">
-                  {language === 'ko' ? '측정 상태' : 'Measurement Status'}
-                </h4>
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-text-secondary">
-                      {language === 'ko' ? '프레임 수' : 'Frames'}
-                    </span>
-                    <span className="text-text-primary font-medium">
-                      {frameHistory.length}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-text-secondary">
-                      {language === 'ko' ? '걸음 수' : 'Steps'}
-                    </span>
-                    <span className="text-text-primary font-medium">
-                      {currentPhase?.cycleCount || 0}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-text-secondary">
-                      {language === 'ko' ? '분석 모드' : 'Mode'}
-                    </span>
-                    <span className="text-text-primary font-medium">
-                      {currentMode === 'webcam'
-                        ? language === 'ko'
-                          ? '웹캠'
-                          : 'Webcam'
-                        : language === 'ko'
-                        ? '비디오'
-                        : 'Video'}
-                    </span>
-                  </div>
-                </div>
-              </motion.div>
-            )}
-          </div>
-        </div>
+          {/* 작업치료 평가 */}
+          {currentAssessment === 'mbi' && <MBIAssessment />}
+          {currentAssessment === 'handFunction' && <HandFunctionAssessment />}
+        </motion.div>
       </div>
     </MainLayout>
   )

@@ -1,12 +1,12 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type {
+  JointCategory,
   MovementType,
   JointSide,
   CalibrationData,
   MeasurementRecord,
   RomMeasurementSession,
-  JointCategory,
 } from '@/types/rom'
 
 interface RomState {
@@ -16,146 +16,136 @@ interface RomState {
   selectedMovement: MovementType | null
   selectedSide: JointSide
   currentAngle: number
-  isCalibrating: boolean
-  calibrationStep: 'idle' | 'min' | 'max' | 'complete'
+  measurementMode: 'single' | 'compare'
+  voiceEnabled: boolean
 
   // 캘리브레이션 데이터
-  calibrations: Record<string, CalibrationData>
+  calibrations: CalibrationData[]
 
-  // 측정 기록
-  measurementHistory: RomMeasurementSession[]
-  currentSession: MeasurementRecord[]
+  // 현재 세션 측정값들
+  currentMeasurements: MeasurementRecord[]
 
-  // 설정
-  voiceEnabled: boolean
-  measurementMode: 'single' | 'full' | 'compare'
+  // 저장된 세션 기록
+  sessions: RomMeasurementSession[]
 
-  // 액션
-  setIsActive: (active: boolean) => void
+  // Actions
+  setIsActive: (isActive: boolean) => void
   setSelectedCategory: (category: JointCategory) => void
   setSelectedMovement: (movement: MovementType | null) => void
   setSelectedSide: (side: JointSide) => void
   setCurrentAngle: (angle: number) => void
-  setIsCalibrating: (calibrating: boolean) => void
-  setCalibrationStep: (step: 'idle' | 'min' | 'max' | 'complete') => void
+  setMeasurementMode: (mode: 'single' | 'compare') => void
+  setVoiceEnabled: (enabled: boolean) => void
 
   // 캘리브레이션
-  saveCalibration: (data: CalibrationData) => void
+  saveCalibration: (calibration: CalibrationData) => void
   getCalibration: (movementId: MovementType, side: JointSide) => CalibrationData | null
-  resetCalibration: (movementId: MovementType, side: JointSide) => void
-  resetAllCalibrations: () => void
 
   // 측정 기록
-  addMeasurement: (record: MeasurementRecord) => void
-  saveSession: () => void
-  clearCurrentSession: () => void
-  clearHistory: () => void
+  addMeasurement: (measurement: MeasurementRecord) => void
+  clearCurrentMeasurements: () => void
 
-  // 설정
-  setVoiceEnabled: (enabled: boolean) => void
-  setMeasurementMode: (mode: 'single' | 'full' | 'compare') => void
-}
-
-function generateCalibrationKey(movementId: MovementType, side: JointSide): string {
-  return `${movementId}_${side}`
+  // 세션 저장
+  saveSession: () => RomMeasurementSession | null
+  deleteSession: (id: string) => void
+  clearSessions: () => void
 }
 
 export const useRomStore = create<RomState>()(
   persist(
     (set, get) => ({
-      // 초기 상태
+      // 초기값
       isActive: false,
       selectedCategory: 'shoulder',
       selectedMovement: null,
       selectedSide: 'left',
       currentAngle: 0,
-      isCalibrating: false,
-      calibrationStep: 'idle',
-
-      calibrations: {},
-      measurementHistory: [],
-      currentSession: [],
-
-      voiceEnabled: true,
       measurementMode: 'single',
+      voiceEnabled: true,
+      calibrations: [],
+      currentMeasurements: [],
+      sessions: [],
 
-      // 측정 상태 액션
-      setIsActive: (active) => set({ isActive: active }),
-      setSelectedCategory: (category) => set({ selectedCategory: category }),
+      // Setters
+      setIsActive: (isActive) => set({ isActive }),
+      setSelectedCategory: (category) =>
+        set({ selectedCategory: category, selectedMovement: null }),
       setSelectedMovement: (movement) => set({ selectedMovement: movement }),
       setSelectedSide: (side) => set({ selectedSide: side }),
       setCurrentAngle: (angle) => set({ currentAngle: angle }),
-      setIsCalibrating: (calibrating) => set({ isCalibrating: calibrating }),
-      setCalibrationStep: (step) => set({ calibrationStep: step }),
+      setMeasurementMode: (mode) => set({ measurementMode: mode }),
+      setVoiceEnabled: (enabled) => set({ voiceEnabled: enabled }),
 
-      // 캘리브레이션 액션
-      saveCalibration: (data) => {
-        const key = generateCalibrationKey(data.movementId, data.side)
-        set((state) => ({
-          calibrations: {
-            ...state.calibrations,
-            [key]: data,
-          },
-        }))
-      },
-
-      getCalibration: (movementId, side) => {
-        const key = generateCalibrationKey(movementId, side)
-        return get().calibrations[key] || null
-      },
-
-      resetCalibration: (movementId, side) => {
-        const key = generateCalibrationKey(movementId, side)
+      // 캘리브레이션
+      saveCalibration: (calibration) => {
         set((state) => {
-          const newCalibrations = { ...state.calibrations }
-          delete newCalibrations[key]
-          return { calibrations: newCalibrations }
+          const existing = state.calibrations.findIndex(
+            (c) =>
+              c.movementId === calibration.movementId && c.side === calibration.side
+          )
+          if (existing >= 0) {
+            const newCalibrations = [...state.calibrations]
+            newCalibrations[existing] = calibration
+            return { calibrations: newCalibrations }
+          }
+          return { calibrations: [...state.calibrations, calibration] }
         })
       },
 
-      resetAllCalibrations: () => set({ calibrations: {} }),
+      getCalibration: (movementId, side) => {
+        const { calibrations } = get()
+        return (
+          calibrations.find(
+            (c) => c.movementId === movementId && c.side === side
+          ) || null
+        )
+      },
 
-      // 측정 기록 액션
-      addMeasurement: (record) => {
+      // 측정 기록
+      addMeasurement: (measurement) => {
         set((state) => ({
-          currentSession: [...state.currentSession, record],
+          currentMeasurements: [...state.currentMeasurements, measurement],
         }))
       },
 
+      clearCurrentMeasurements: () => {
+        set({ currentMeasurements: [] })
+      },
+
+      // 세션 저장
       saveSession: () => {
-        const currentSession = get().currentSession
-        if (currentSession.length === 0) return
+        const { currentMeasurements, sessions } = get()
+        if (currentMeasurements.length === 0) return null
 
         const session: RomMeasurementSession = {
-          id: `session-${Date.now()}`,
+          id: crypto.randomUUID(),
           timestamp: new Date().toISOString(),
-          measurements: currentSession,
+          measurements: [...currentMeasurements],
         }
 
+        set({
+          sessions: [session, ...sessions].slice(0, 50),
+          currentMeasurements: [],
+        })
+
+        return session
+      },
+
+      deleteSession: (id) => {
         set((state) => ({
-          measurementHistory: [session, ...state.measurementHistory].slice(0, 100),
-          currentSession: [],
+          sessions: state.sessions.filter((s) => s.id !== id),
         }))
       },
 
-      clearCurrentSession: () => set({ currentSession: [] }),
-
-      clearHistory: () => set({ measurementHistory: [] }),
-
-      // 설정 액션
-      setVoiceEnabled: (enabled) => set({ voiceEnabled: enabled }),
-      setMeasurementMode: (mode) => set({ measurementMode: mode }),
+      clearSessions: () => {
+        set({ sessions: [] })
+      },
     }),
     {
-      name: 'posture-ai-rom',
-      // 캐시할 데이터만 선택 (일시적인 상태는 제외)
+      name: 'posture-ai-rom-measurement',
       partialize: (state) => ({
-        selectedCategory: state.selectedCategory,
-        selectedMovement: state.selectedMovement,
-        selectedSide: state.selectedSide,
         calibrations: state.calibrations,
-        measurementHistory: state.measurementHistory,
-        currentSession: state.currentSession,
+        sessions: state.sessions,
         voiceEnabled: state.voiceEnabled,
         measurementMode: state.measurementMode,
       }),

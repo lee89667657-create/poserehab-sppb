@@ -22,15 +22,11 @@
   "nav": {
     "home": "Home",
     "postureAnalysis": "Posture Analysis",
-    "analysisHistory": "Analysis History",
     "exercise": "Exercise",
-    "handRehab": "Hand Rehab",
-    "romMeasurement": "ROM Measurement",
-    "gaitAnalysis": "Gait Analysis",
-    "avatar": "3D Avatar",
+    "assessmentTools": "Assessment Tools",
     "games": "Rehab Games",
-    "history": "History",
-    "prediction": "Pain Prediction",
+    "dataRecords": "Data/Records",
+    "patientGuide": "Patient Guide",
     "settings": "Settings"
   },
   "avatar": {
@@ -139,6 +135,13 @@
     "totalTime": "Total Time",
     "weeklyReport": "Weekly Report",
     "viewReport": "View Report",
+    "todayAssessments": "Today's Assessments",
+    "exerciseSessions": "Exercise Sessions",
+    "totalPatients": "Total Patients",
+    "rehabCompliance": "Rehab Compliance",
+    "scoreTrend": "Score Trend",
+    "recentAssessments": "Recent Assessments",
+    "noAssessments": "No assessments yet",
     "tips": {
       "title": "Today's Tip",
       "posture": "Good posture helps your back health",

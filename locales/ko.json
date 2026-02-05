@@ -22,15 +22,11 @@
   "nav": {
     "home": "홈",
     "postureAnalysis": "자세 분석",
-    "analysisHistory": "분석 기록",
     "exercise": "운동",
-    "handRehab": "손 재활",
-    "romMeasurement": "ROM 측정",
-    "gaitAnalysis": "보행 분석",
-    "avatar": "3D 아바타",
+    "assessmentTools": "평가 도구",
     "games": "재활 게임",
-    "history": "운동 기록",
-    "prediction": "통증 예측",
+    "dataRecords": "데이터/기록",
+    "patientGuide": "환자 가이드",
     "settings": "설정"
   },
   "avatar": {
@@ -139,6 +135,13 @@
     "totalTime": "총 운동 시간",
     "weeklyReport": "주간 리포트",
     "viewReport": "리포트 보기",
+    "todayAssessments": "오늘 평가 수",
+    "exerciseSessions": "운동 세션",
+    "totalPatients": "환자 수",
+    "rehabCompliance": "재활이행률",
+    "scoreTrend": "평가 점수 추이",
+    "recentAssessments": "최근 평가",
+    "noAssessments": "아직 평가 기록이 없습니다",
     "tips": {
       "title": "오늘의 팁",
       "posture": "바른 자세로 앉으면 허리 건강에 좋습니다",
