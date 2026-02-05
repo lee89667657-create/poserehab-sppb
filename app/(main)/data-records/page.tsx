@@ -6,6 +6,8 @@ import {
   BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, Legend, PieChart, Pie, Cell,
   ReferenceArea, LabelList,
+  AreaChart, Area,
+  RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
 } from 'recharts'
 import {
   FileDown,
@@ -167,7 +169,7 @@ export default function DataRecordsPage() {
       .slice(0, 10)
       .reverse()
       .map((r, i) => {
-        const vals = Object.values(r.scores).flatMap(s => [s.lt, s.rt]).filter((v): v is number => v !== null)
+        const vals = Object.values(r.scores).flatMap(s => [s.lt, s.rt]).filter((v): v is number => v !== null && !isNaN(v))
         const avg = vals.length > 0 ? vals.reduce((a, b) => a + b, 0) / vals.length : 0
         return {
           name: `#${i + 1}`,
@@ -175,6 +177,42 @@ export default function DataRecordsPage() {
           score: Math.round(avg * 10) / 10,
         }
       })
+  }, [mmtStore.history, isKo])
+
+  // MMT 레이더 차트 데이터 (근육군별 이전 vs 최근)
+  const mmtRadarData = useMemo(() => {
+    const sorted = [...mmtStore.history].sort((a, b) => a.timestamp - b.timestamp)
+    if (sorted.length === 0) return []
+    const curr = sorted[sorted.length - 1]
+    const prev = sorted.length >= 2 ? sorted[sorted.length - 2] : null
+
+    const muscleLabels: Record<string, string> = {
+      shoulder_flexor: isKo ? '어깨굴곡' : 'Shoulder',
+      elbow_flexor_extensor: isKo ? '팔꿈치' : 'Elbow',
+      finger_flexor_extensor: isKo ? '손가락' : 'Finger',
+      hip_flexor: isKo ? '고관절' : 'Hip',
+      knee_extensor: isKo ? '무릎' : 'Knee',
+      ankle_dorsiflexor: isKo ? '발목' : 'Ankle',
+    }
+
+    return Object.entries(curr.scores).map(([key, s]) => {
+      const ltVal = (s.lt !== null && !isNaN(s.lt)) ? s.lt : 0
+      const rtVal = (s.rt !== null && !isNaN(s.rt)) ? s.rt : 0
+      const currAvg = (ltVal + rtVal) / 2
+
+      let prevAvg = 0
+      if (prev && prev.scores[key]) {
+        const pLt = (prev.scores[key].lt !== null && !isNaN(prev.scores[key].lt!)) ? prev.scores[key].lt! : 0
+        const pRt = (prev.scores[key].rt !== null && !isNaN(prev.scores[key].rt!)) ? prev.scores[key].rt! : 0
+        prevAvg = (pLt + pRt) / 2
+      }
+
+      return {
+        muscle: muscleLabels[key] || key,
+        current: Math.round(currAvg * 10) / 10,
+        previous: prev ? Math.round(prevAvg * 10) / 10 : 0,
+      }
+    })
   }, [mmtStore.history, isKo])
 
   // Hand Function 전후 비교 데이터
@@ -210,16 +248,6 @@ export default function DataRecordsPage() {
     return weeks
   }, [exerciseRecords, isKo])
 
-  // 평가 유형별 분포
-  const typeDistribution = useMemo(() => {
-    const counts: Record<string, number> = {}
-    allAssessments.forEach((a) => {
-      counts[a.type] = (counts[a.type] || 0) + 1
-    })
-    return Object.entries(counts).map(([name, value]) => ({ name, value }))
-  }, [allAssessments])
-
-  const DIST_COLORS = ['#6366F1', '#8B5CF6', '#10B981', '#F59E0B', '#EF4444', '#EC4899']
 
   const handleExportReport = () => {
     const reportData = {
@@ -304,10 +332,24 @@ export default function DataRecordsPage() {
         {/* 탭 콘텐츠 */}
         <motion.div key={activeTab} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
           {/* === 종합 요약 === */}
-          {activeTab === 'overview' && (
+          {activeTab === 'overview' && (() => {
+            const usedTools = new Set<string>()
+            if (bbsStore.history.length > 0) usedTools.add('BBS')
+            if (facStore.history.length > 0) usedTools.add('FAC')
+            if (mbiStore.history.length > 0) usedTools.add('MBI')
+            if (mmtStore.history.length > 0) usedTools.add('MMT')
+            if (handStore.history.length > 0) usedTools.add('Hand')
+            if (romStore.history.length > 0) usedTools.add('ROM')
+            const latestTimestamp = allAssessments.length > 0 ? allAssessments[0].timestamp : null
+            const latestDateStr = latestTimestamp
+              ? new Date(latestTimestamp).toLocaleDateString(isKo ? 'ko-KR' : 'en-US', { year: 'numeric', month: 'numeric', day: 'numeric' })
+              : '-'
+            const completedTypes = usedTools.size
+            const totalTypes = 6
+            return (
             <div className="space-y-6">
               {/* 요약 카드 */}
-              <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+              <div className="grid grid-cols-3 gap-4">
                 <Card>
                   <CardContent className="p-4 text-center">
                     <p className="text-2xl font-bold text-primary">{allAssessments.length}</p>
@@ -316,49 +358,154 @@ export default function DataRecordsPage() {
                 </Card>
                 <Card>
                   <CardContent className="p-4 text-center">
-                    <p className="text-2xl font-bold text-emerald-600">{stats.totalSessions}</p>
-                    <p className="text-xs text-text-secondary">{isKo ? '운동 세션' : 'Exercise Sessions'}</p>
+                    <p className="text-2xl font-bold text-violet-600">{usedTools.size}<span className="text-sm font-medium text-text-secondary">/{totalTypes}</span></p>
+                    <p className="text-xs text-text-secondary">{isKo ? '평가 도구' : 'Tools Used'}</p>
                   </CardContent>
                 </Card>
                 <Card>
                   <CardContent className="p-4 text-center">
-                    <p className="text-2xl font-bold text-violet-600">{formatTime(stats.totalTime)}</p>
-                    <p className="text-xs text-text-secondary">{isKo ? '총 운동 시간' : 'Total Time'}</p>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardContent className="p-4 text-center">
-                    <p className="text-2xl font-bold text-amber-600">
-                      {complianceData.length > 0 ? complianceData[complianceData.length - 1].rate : 0}%
-                    </p>
-                    <p className="text-xs text-text-secondary">{isKo ? '이번 주 이행률' : 'This Week'}</p>
+                    <p className="text-lg font-bold text-emerald-600">{latestDateStr}</p>
+                    <p className="text-xs text-text-secondary">{isKo ? '최근 평가일' : 'Last Assessment'}</p>
                   </CardContent>
                 </Card>
               </div>
 
-              {/* 평가 유형 분포 + 최근 기록 */}
+              {/* 최근 평가 점수 요약 + 최근 기록 */}
               <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
                 <Card>
                   <CardHeader className="pb-2">
-                    <CardTitle className="text-sm">{isKo ? '평가 유형 분포' : 'Assessment Distribution'}</CardTitle>
+                    <CardTitle className="text-sm">{isKo ? '최근 평가 점수' : 'Latest Scores'}</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    {typeDistribution.length > 0 ? (
-                      <ResponsiveContainer width="100%" height={200}>
-                        <PieChart>
-                          <Pie data={typeDistribution} cx="50%" cy="50%" outerRadius={80} dataKey="value" label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}>
-                            {typeDistribution.map((_, i) => (
-                              <Cell key={i} fill={DIST_COLORS[i % DIST_COLORS.length]} />
-                            ))}
-                          </Pie>
-                          <Tooltip />
-                        </PieChart>
-                      </ResponsiveContainer>
-                    ) : (
-                      <div className="flex h-[200px] items-center justify-center text-sm text-text-secondary">
-                        {isKo ? '데이터 없음' : 'No data'}
+                    <div className="space-y-2.5">
+                      {/* BBS */}
+                      {bbsStore.history.length > 0 ? (() => {
+                        const latest = [...bbsStore.history].sort((a, b) => b.timestamp - a.timestamp)[0]
+                        const risk = latest.totalScore <= 20 ? (isKo ? '높은 위험' : 'High Risk') : latest.totalScore <= 40 ? (isKo ? '중간 위험' : 'Med Risk') : (isKo ? '낮은 위험' : 'Low Risk')
+                        const riskColor = latest.totalScore <= 20 ? 'text-red-500' : latest.totalScore <= 40 ? 'text-amber-500' : 'text-emerald-500'
+                        return (
+                          <div className="flex items-center justify-between rounded-lg border border-border px-3 py-2">
+                            <span className="inline-flex w-[42px] items-center justify-center rounded-md bg-blue-100 px-1.5 py-0.5 text-[10px] font-bold text-blue-700 dark:bg-blue-500/20 dark:text-blue-400">BBS</span>
+                            <span className="text-xs font-bold text-text-primary">{latest.totalScore}/56</span>
+                            <span className={cn('text-[10px] font-medium', riskColor)}>{risk}</span>
+                          </div>
+                        )
+                      })() : (
+                        <div className="flex items-center justify-between rounded-lg border border-dashed border-border px-3 py-2 opacity-40">
+                          <span className="inline-flex w-[42px] items-center justify-center rounded-md bg-gray-100 px-1.5 py-0.5 text-[10px] font-bold text-gray-400 dark:bg-gray-800">BBS</span>
+                          <span className="text-[10px] text-text-secondary">-</span>
+                          <span className="text-[10px] text-text-secondary">{isKo ? '미평가' : 'N/A'}</span>
+                        </div>
+                      )}
+
+                      {/* FAC */}
+                      {facStore.history.length > 0 ? (() => {
+                        const latest = [...facStore.history].sort((a: { timestamp: number }, b: { timestamp: number }) => b.timestamp - a.timestamp)[0] as { level: number }
+                        const desc = latest.level <= 1 ? (isKo ? '보조 필요' : 'Assisted') : latest.level <= 3 ? (isKo ? '감독 필요' : 'Supervised') : (isKo ? '독립 보행' : 'Independent')
+                        const descColor = latest.level <= 1 ? 'text-red-500' : latest.level <= 3 ? 'text-amber-500' : 'text-emerald-500'
+                        return (
+                          <div className="flex items-center justify-between rounded-lg border border-border px-3 py-2">
+                            <span className="inline-flex w-[42px] items-center justify-center rounded-md bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-700 dark:bg-amber-500/20 dark:text-amber-400">FAC</span>
+                            <span className="text-xs font-bold text-text-primary">Level {latest.level}</span>
+                            <span className={cn('text-[10px] font-medium', descColor)}>{desc}</span>
+                          </div>
+                        )
+                      })() : (
+                        <div className="flex items-center justify-between rounded-lg border border-dashed border-border px-3 py-2 opacity-40">
+                          <span className="inline-flex w-[42px] items-center justify-center rounded-md bg-gray-100 px-1.5 py-0.5 text-[10px] font-bold text-gray-400 dark:bg-gray-800">FAC</span>
+                          <span className="text-[10px] text-text-secondary">-</span>
+                          <span className="text-[10px] text-text-secondary">{isKo ? '미평가' : 'N/A'}</span>
+                        </div>
+                      )}
+
+                      {/* MBI */}
+                      {mbiStore.history.length > 0 ? (() => {
+                        const latest = [...mbiStore.history].sort((a: { timestamp: number }, b: { timestamp: number }) => b.timestamp - a.timestamp)[0] as { totalScore: number }
+                        const dep = latest.totalScore >= 91 ? (isKo ? '독립' : 'Independent') : latest.totalScore >= 50 ? (isKo ? '부분의존' : 'Partial') : (isKo ? '의존' : 'Dependent')
+                        const depColor = latest.totalScore >= 91 ? 'text-emerald-500' : latest.totalScore >= 50 ? 'text-amber-500' : 'text-red-500'
+                        return (
+                          <div className="flex items-center justify-between rounded-lg border border-border px-3 py-2">
+                            <span className="inline-flex w-[42px] items-center justify-center rounded-md bg-emerald-100 px-1.5 py-0.5 text-[10px] font-bold text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400">MBI</span>
+                            <span className="text-xs font-bold text-text-primary">{latest.totalScore}/100</span>
+                            <span className={cn('text-[10px] font-medium', depColor)}>{dep}</span>
+                          </div>
+                        )
+                      })() : (
+                        <div className="flex items-center justify-between rounded-lg border border-dashed border-border px-3 py-2 opacity-40">
+                          <span className="inline-flex w-[42px] items-center justify-center rounded-md bg-gray-100 px-1.5 py-0.5 text-[10px] font-bold text-gray-400 dark:bg-gray-800">MBI</span>
+                          <span className="text-[10px] text-text-secondary">-</span>
+                          <span className="text-[10px] text-text-secondary">{isKo ? '미평가' : 'N/A'}</span>
+                        </div>
+                      )}
+
+                      {/* MMT */}
+                      {mmtStore.history.length > 0 ? (() => {
+                        const latest = [...mmtStore.history].sort((a, b) => b.timestamp - a.timestamp)[0]
+                        const vals = Object.values(latest.scores).flatMap(s => [s.lt, s.rt]).filter((v): v is number => v !== null && !isNaN(v))
+                        const avg = vals.length > 0 ? Math.round(vals.reduce((a, b) => a + b, 0) / vals.length * 10) / 10 : 0
+                        return (
+                          <div className="flex items-center justify-between rounded-lg border border-border px-3 py-2">
+                            <span className="inline-flex w-[42px] items-center justify-center rounded-md bg-purple-100 px-1.5 py-0.5 text-[10px] font-bold text-purple-700 dark:bg-purple-500/20 dark:text-purple-400">MMT</span>
+                            <span className="text-xs font-bold text-text-primary">{isKo ? '평균' : 'Avg'} {avg}</span>
+                            <span className="text-[10px] text-text-secondary">/ 5</span>
+                          </div>
+                        )
+                      })() : (
+                        <div className="flex items-center justify-between rounded-lg border border-dashed border-border px-3 py-2 opacity-40">
+                          <span className="inline-flex w-[42px] items-center justify-center rounded-md bg-gray-100 px-1.5 py-0.5 text-[10px] font-bold text-gray-400 dark:bg-gray-800">MMT</span>
+                          <span className="text-[10px] text-text-secondary">-</span>
+                          <span className="text-[10px] text-text-secondary">{isKo ? '미평가' : 'N/A'}</span>
+                        </div>
+                      )}
+
+                      {/* Hand */}
+                      {handStore.history.length > 0 ? (() => {
+                        const latest = [...handStore.history].sort((a, b) => b.timestamp - a.timestamp)[0]
+                        return (
+                          <div className="flex items-center justify-between rounded-lg border border-border px-3 py-2">
+                            <span className="inline-flex w-[42px] items-center justify-center rounded-md bg-pink-100 px-1.5 py-0.5 text-[10px] font-bold text-pink-700 dark:bg-pink-500/20 dark:text-pink-400">Hand</span>
+                            <span className="text-xs font-bold text-text-primary">Lt.{latest.leftTotalScore} / Rt.{latest.rightTotalScore}</span>
+                            <span className="text-[10px] text-text-secondary">{isKo ? '손기능' : 'Function'}</span>
+                          </div>
+                        )
+                      })() : (
+                        <div className="flex items-center justify-between rounded-lg border border-dashed border-border px-3 py-2 opacity-40">
+                          <span className="inline-flex w-[42px] items-center justify-center rounded-md bg-gray-100 px-1.5 py-0.5 text-[10px] font-bold text-gray-400 dark:bg-gray-800">Hand</span>
+                          <span className="text-[10px] text-text-secondary">-</span>
+                          <span className="text-[10px] text-text-secondary">{isKo ? '미평가' : 'N/A'}</span>
+                        </div>
+                      )}
+
+                      {/* ROM */}
+                      {romStore.history.length > 0 ? (() => {
+                        const latest = [...romStore.history].sort((a, b) => b.timestamp - a.timestamp)[0]
+                        const count = Object.keys(latest.scores).length
+                        return (
+                          <div className="flex items-center justify-between rounded-lg border border-border px-3 py-2">
+                            <span className="inline-flex w-[42px] items-center justify-center rounded-md bg-cyan-100 px-1.5 py-0.5 text-[10px] font-bold text-cyan-700 dark:bg-cyan-500/20 dark:text-cyan-400">ROM</span>
+                            <span className="text-xs font-bold text-text-primary">{count}{isKo ? '개 관절' : ' joints'}</span>
+                            <span className="text-[10px] text-text-secondary">{isKo ? '측정됨' : 'measured'}</span>
+                          </div>
+                        )
+                      })() : (
+                        <div className="flex items-center justify-between rounded-lg border border-dashed border-border px-3 py-2 opacity-40">
+                          <span className="inline-flex w-[42px] items-center justify-center rounded-md bg-gray-100 px-1.5 py-0.5 text-[10px] font-bold text-gray-400 dark:bg-gray-800">ROM</span>
+                          <span className="text-[10px] text-text-secondary">-</span>
+                          <span className="text-[10px] text-text-secondary">{isKo ? '미평가' : 'N/A'}</span>
+                        </div>
+                      )}
+
+                      {/* 평가 완료율 바 */}
+                      <div className="mt-1 pt-2 border-t border-border">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-[10px] text-text-secondary">{isKo ? '평가 완료율' : 'Completion'}</span>
+                          <span className="text-[10px] font-bold text-primary">{completedTypes}/{totalTypes}</span>
+                        </div>
+                        <div className="h-2 w-full rounded-full bg-gray-100 dark:bg-gray-800 overflow-hidden">
+                          <div className="h-full rounded-full bg-gradient-to-r from-primary to-violet-500 transition-all" style={{ width: `${(completedTypes / totalTypes) * 100}%` }} />
+                        </div>
                       </div>
-                    )}
+                    </div>
                   </CardContent>
                 </Card>
 
@@ -402,7 +549,8 @@ export default function DataRecordsPage() {
                 </Card>
               </div>
             </div>
-          )}
+            )
+          })()}
 
           {/* === 평가 기록 === */}
           {activeTab === 'assessments' && (
@@ -491,369 +639,448 @@ export default function DataRecordsPage() {
 
           {/* === 전후 비교 === */}
           {activeTab === 'exercise' && (
-            <div className="space-y-6">
+            <div className="space-y-4">
               {/* 비교 탭 헤더 */}
               <div className="flex items-center justify-between">
-                <p className="text-sm text-text-secondary">
-                  {isKo ? '각 평가 도구별 전후 비교를 확인하세요.' : 'Compare before and after for each assessment tool.'}
+                <p className="text-xs text-text-secondary">
+                  {isKo ? '각 평가 도구별 전후 비교' : 'Before & after comparison'}
                 </p>
                 <Button onClick={handleComparisonReport} size="sm" variant="outline">
                   <FileDown className="mr-1.5 h-4 w-4" />
-                  {isKo ? '비교 리포트' : 'Comparison Report'}
+                  {isKo ? '비교 리포트' : 'Report'}
                 </Button>
               </div>
 
-              {/* ── BBS 비교 카드 ── */}
-              {bbsStore.history.length > 0 && (
-                <Card>
-                  <CardHeader className="pb-3">
-                    <div className="flex items-center justify-between">
-                      <CardTitle className="text-sm">BBS (Berg Balance Scale)</CardTitle>
-                      <span className="text-xs text-text-secondary">0 - 56</span>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    {bbsCompareData.length >= 2 ? (() => {
-                      const change = getChange(bbsCompareData)!
-                      const prevDate = bbsCompareData[bbsCompareData.length - 2].date
-                      const currDate = bbsCompareData[bbsCompareData.length - 1].date
-                      const getRisk = (s: number) => s <= 20 ? (isKo ? '높은위험' : 'High') : s <= 40 ? (isKo ? '중간위험' : 'Medium') : (isKo ? '낮은위험' : 'Low')
-                      const getRiskColor = (s: number) => s <= 20 ? 'text-red-500' : s <= 40 ? 'text-amber-500' : 'text-emerald-500'
-                      return (
-                        <div className="space-y-4">
-                          {/* 비교 박스 */}
-                          <div className="grid grid-cols-3 gap-3">
-                            <div className="rounded-lg border border-border bg-background p-3 text-center">
-                              <p className="text-[10px] text-text-secondary">{prevDate}</p>
-                              <p className="text-lg font-bold text-text-primary">{change.prev}/56</p>
-                              <p className={cn('text-[11px] font-medium', getRiskColor(change.prev))}>{getRisk(change.prev)}</p>
-                            </div>
-                            <div className="flex flex-col items-center justify-center">
-                              {change.diff > 0 ? <ArrowUp className="h-5 w-5 text-emerald-500" /> : change.diff < 0 ? <ArrowDown className="h-5 w-5 text-red-500" /> : <Minus className="h-5 w-5 text-text-secondary" />}
-                              <p className={cn('text-sm font-bold', change.diff > 0 ? 'text-emerald-500' : change.diff < 0 ? 'text-red-500' : 'text-text-secondary')}>
-                                {change.diff > 0 ? `+${change.diff}` : change.diff}
-                              </p>
-                              <p className="text-[10px] text-text-secondary">{change.diff > 0 ? (isKo ? '향상' : 'Improved') : change.diff < 0 ? (isKo ? '저하' : 'Declined') : (isKo ? '유지' : 'Same')}</p>
-                            </div>
-                            <div className="rounded-lg border border-border bg-background p-3 text-center">
-                              <p className="text-[10px] text-text-secondary">{currDate}</p>
-                              <p className="text-lg font-bold text-text-primary">{change.curr}/56</p>
-                              <p className={cn('text-[11px] font-medium', getRiskColor(change.curr))}>{getRisk(change.curr)}</p>
-                            </div>
-                          </div>
-                          {/* BBS 그래프 (위험구간 배경색) */}
-                          <ResponsiveContainer width="100%" height={220}>
-                            <LineChart data={bbsCompareData} margin={{ top: 15, right: 20, left: -10, bottom: 5 }}>
-                              <ReferenceArea y1={0} y2={20} fill="#FEE2E2" fillOpacity={0.5} />
-                              <ReferenceArea y1={20} y2={40} fill="#FEF3C7" fillOpacity={0.5} />
-                              <ReferenceArea y1={40} y2={56} fill="#D1FAE5" fillOpacity={0.5} />
-                              <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                              <XAxis dataKey="date" tick={{ fontSize: 10, fill: 'hsl(var(--text-secondary))' }} />
-                              <YAxis domain={[0, 56]} tick={{ fontSize: 10, fill: 'hsl(var(--text-secondary))' }} />
-                              <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--surface))', border: '1px solid hsl(var(--border))', borderRadius: '8px', fontSize: '12px' }} />
-                              <Line type="monotone" dataKey="score" stroke="#6366F1" strokeWidth={2} dot={{ r: 5, fill: '#6366F1' }} name="BBS">
-                                <LabelList dataKey="score" position="top" style={{ fontSize: 10, fill: '#6366F1', fontWeight: 600 }} />
-                              </Line>
-                            </LineChart>
-                          </ResponsiveContainer>
-                        </div>
-                      )
-                    })() : (
-                      <div className="flex h-24 items-center justify-center text-sm text-text-secondary">
-                        {isKo ? '다음 평가 후 비교 가능합니다.' : 'Comparison available after next assessment.'}
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              )}
+              {/* 2열 그리드 (모바일 1열) */}
+              <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
 
-              {/* ── FAC 비교 카드 ── */}
-              {facStore.history.length > 0 && (
-                <Card>
-                  <CardHeader className="pb-3">
-                    <div className="flex items-center justify-between">
-                      <CardTitle className="text-sm">FAC (Functional Ambulation)</CardTitle>
-                      <span className="text-xs text-text-secondary">Level 0 - 5</span>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    {facCompareData.length >= 2 ? (() => {
-                      const change = getChange(facCompareData)!
-                      const prevDate = facCompareData[facCompareData.length - 2].date
-                      const currDate = facCompareData[facCompareData.length - 1].date
-                      const getDesc = (l: number) => l <= 1 ? (isKo ? '보조필요' : 'Assisted') : l <= 3 ? (isKo ? '감독필요' : 'Supervised') : (isKo ? '독립보행' : 'Independent')
-                      return (
-                        <div className="space-y-4">
-                          <div className="grid grid-cols-3 gap-3">
-                            <div className="rounded-lg border border-border bg-background p-3 text-center">
-                              <p className="text-[10px] text-text-secondary">{prevDate}</p>
-                              <p className="text-lg font-bold text-text-primary">Level {change.prev}</p>
-                              <p className="text-[11px] text-text-secondary">{getDesc(change.prev)}</p>
-                            </div>
-                            <div className="flex flex-col items-center justify-center">
-                              {change.diff > 0 ? <ArrowUp className="h-5 w-5 text-emerald-500" /> : change.diff < 0 ? <ArrowDown className="h-5 w-5 text-red-500" /> : <Minus className="h-5 w-5 text-text-secondary" />}
-                              <p className={cn('text-sm font-bold', change.diff > 0 ? 'text-emerald-500' : change.diff < 0 ? 'text-red-500' : 'text-text-secondary')}>
-                                {change.diff > 0 ? `+${change.diff}` : change.diff}
-                              </p>
-                              <p className="text-[10px] text-text-secondary">{change.diff > 0 ? (isKo ? '향상' : 'Improved') : change.diff < 0 ? (isKo ? '저하' : 'Declined') : (isKo ? '유지' : 'Same')}</p>
-                            </div>
-                            <div className="rounded-lg border border-border bg-background p-3 text-center">
-                              <p className="text-[10px] text-text-secondary">{currDate}</p>
-                              <p className="text-lg font-bold text-text-primary">Level {change.curr}</p>
-                              <p className="text-[11px] text-text-secondary">{getDesc(change.curr)}</p>
-                            </div>
-                          </div>
-                          <ResponsiveContainer width="100%" height={180}>
-                            <BarChart data={facCompareData} margin={{ top: 15, right: 20, left: -10, bottom: 5 }}>
-                              <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                              <XAxis dataKey="date" tick={{ fontSize: 10, fill: 'hsl(var(--text-secondary))' }} />
-                              <YAxis domain={[0, 5]} tick={{ fontSize: 10, fill: 'hsl(var(--text-secondary))' }} />
-                              <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--surface))', border: '1px solid hsl(var(--border))', borderRadius: '8px', fontSize: '12px' }} />
-                              <Bar dataKey="score" fill="#F59E0B" radius={[4, 4, 0, 0]} name="FAC">
-                                <LabelList dataKey="score" position="top" style={{ fontSize: 10, fill: '#F59E0B', fontWeight: 600 }} />
-                              </Bar>
-                            </BarChart>
-                          </ResponsiveContainer>
-                        </div>
-                      )
-                    })() : (
-                      <div className="flex h-24 items-center justify-center text-sm text-text-secondary">
-                        {isKo ? '다음 평가 후 비교 가능합니다.' : 'Comparison available after next assessment.'}
+                {/* ── BBS: Area Chart 그라데이션 + 위험구간 ── */}
+                {bbsStore.history.length > 0 && (
+                  <Card className="min-h-[300px] flex flex-col">
+                    <CardHeader className="px-4 py-2.5 pb-1">
+                      <div className="flex items-center justify-between">
+                        <CardTitle className="text-xs font-bold">BBS</CardTitle>
+                        <span className="text-[10px] text-text-secondary">0-56</span>
                       </div>
-                    )}
-                  </CardContent>
-                </Card>
-              )}
-
-              {/* ── MBI 비교 카드 ── */}
-              {mbiStore.history.length > 0 && (
-                <Card>
-                  <CardHeader className="pb-3">
-                    <div className="flex items-center justify-between">
-                      <CardTitle className="text-sm">MBI (Modified Barthel Index)</CardTitle>
-                      <span className="text-xs text-text-secondary">0 - 100</span>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    {mbiCompareData.length >= 2 ? (() => {
-                      const change = getChange(mbiCompareData)!
-                      const prevDate = mbiCompareData[mbiCompareData.length - 2].date
-                      const currDate = mbiCompareData[mbiCompareData.length - 1].date
-                      const getDep = (s: number) => s >= 91 ? (isKo ? '독립' : 'Independent') : s >= 50 ? (isKo ? '부분의존' : 'Partial') : (isKo ? '의존' : 'Dependent')
-                      const getDepColor = (s: number) => s >= 91 ? 'text-emerald-500' : s >= 50 ? 'text-amber-500' : 'text-red-500'
-                      return (
-                        <div className="space-y-4">
-                          <div className="grid grid-cols-3 gap-3">
-                            <div className="rounded-lg border border-border bg-background p-3 text-center">
-                              <p className="text-[10px] text-text-secondary">{prevDate}</p>
-                              <p className="text-lg font-bold text-text-primary">{change.prev}/100</p>
-                              <p className={cn('text-[11px] font-medium', getDepColor(change.prev))}>{getDep(change.prev)}</p>
-                            </div>
-                            <div className="flex flex-col items-center justify-center">
-                              {change.diff > 0 ? <ArrowUp className="h-5 w-5 text-emerald-500" /> : change.diff < 0 ? <ArrowDown className="h-5 w-5 text-red-500" /> : <Minus className="h-5 w-5 text-text-secondary" />}
-                              <p className={cn('text-sm font-bold', change.diff > 0 ? 'text-emerald-500' : change.diff < 0 ? 'text-red-500' : 'text-text-secondary')}>
-                                {change.diff > 0 ? `+${change.diff}` : change.diff}
-                              </p>
-                              <p className="text-[10px] text-text-secondary">{change.diff > 0 ? (isKo ? '향상' : 'Improved') : change.diff < 0 ? (isKo ? '저하' : 'Declined') : (isKo ? '유지' : 'Same')}</p>
-                            </div>
-                            <div className="rounded-lg border border-border bg-background p-3 text-center">
-                              <p className="text-[10px] text-text-secondary">{currDate}</p>
-                              <p className="text-lg font-bold text-text-primary">{change.curr}/100</p>
-                              <p className={cn('text-[11px] font-medium', getDepColor(change.curr))}>{getDep(change.curr)}</p>
-                            </div>
-                          </div>
-                          <ResponsiveContainer width="100%" height={220}>
-                            <LineChart data={mbiCompareData} margin={{ top: 15, right: 20, left: -10, bottom: 5 }}>
-                              <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                              <XAxis dataKey="date" tick={{ fontSize: 10, fill: 'hsl(var(--text-secondary))' }} />
-                              <YAxis domain={[0, 100]} tick={{ fontSize: 10, fill: 'hsl(var(--text-secondary))' }} />
-                              <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--surface))', border: '1px solid hsl(var(--border))', borderRadius: '8px', fontSize: '12px' }} />
-                              <Line type="monotone" dataKey="score" stroke="#10B981" strokeWidth={2} dot={{ r: 5, fill: '#10B981' }} name="MBI">
-                                <LabelList dataKey="score" position="top" style={{ fontSize: 10, fill: '#10B981', fontWeight: 600 }} />
-                              </Line>
-                            </LineChart>
-                          </ResponsiveContainer>
-                        </div>
-                      )
-                    })() : (
-                      <div className="flex h-24 items-center justify-center text-sm text-text-secondary">
-                        {isKo ? '다음 평가 후 비교 가능합니다.' : 'Comparison available after next assessment.'}
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              )}
-
-              {/* ── MMT 비교 카드 ── */}
-              {mmtStore.history.length > 0 && (
-                <Card>
-                  <CardHeader className="pb-3">
-                    <div className="flex items-center justify-between">
-                      <CardTitle className="text-sm">MMT (Manual Muscle Testing)</CardTitle>
-                      <span className="text-xs text-text-secondary">Grade 0 - 5</span>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    {mmtCompareData.length >= 2 ? (() => {
-                      const change = getChange(mmtCompareData)!
-                      const prevDate = mmtCompareData[mmtCompareData.length - 2].date
-                      const currDate = mmtCompareData[mmtCompareData.length - 1].date
-                      const prevCount = Object.keys(mmtStore.history[mmtStore.history.length - 1]?.scores || {}).length
-                      const currCount = Object.keys(mmtStore.history[0]?.scores || {}).length
-                      return (
-                        <div className="space-y-4">
-                          <div className="grid grid-cols-3 gap-3">
-                            <div className="rounded-lg border border-border bg-background p-3 text-center">
-                              <p className="text-[10px] text-text-secondary">{prevDate}</p>
-                              <p className="text-lg font-bold text-text-primary">{change.prev}</p>
-                              <p className="text-[11px] text-text-secondary">{isKo ? '평균 등급' : 'Avg Grade'}</p>
-                            </div>
-                            <div className="flex flex-col items-center justify-center">
-                              {change.diff > 0 ? <ArrowUp className="h-5 w-5 text-emerald-500" /> : change.diff < 0 ? <ArrowDown className="h-5 w-5 text-red-500" /> : <Minus className="h-5 w-5 text-text-secondary" />}
-                              <p className={cn('text-sm font-bold', change.diff > 0 ? 'text-emerald-500' : change.diff < 0 ? 'text-red-500' : 'text-text-secondary')}>
-                                {change.diff > 0 ? `+${change.diff}` : change.diff}
-                              </p>
-                              <p className="text-[10px] text-text-secondary">{change.diff > 0 ? (isKo ? '향상' : 'Improved') : change.diff < 0 ? (isKo ? '저하' : 'Declined') : (isKo ? '유지' : 'Same')}</p>
-                            </div>
-                            <div className="rounded-lg border border-border bg-background p-3 text-center">
-                              <p className="text-[10px] text-text-secondary">{currDate}</p>
-                              <p className="text-lg font-bold text-text-primary">{change.curr}</p>
-                              <p className="text-[11px] text-text-secondary">{isKo ? '평균 등급' : 'Avg Grade'}</p>
-                            </div>
-                          </div>
-                          <ResponsiveContainer width="100%" height={180}>
-                            <LineChart data={mmtCompareData} margin={{ top: 15, right: 20, left: -10, bottom: 5 }}>
-                              <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                              <XAxis dataKey="date" tick={{ fontSize: 10, fill: 'hsl(var(--text-secondary))' }} />
-                              <YAxis domain={[0, 5]} tick={{ fontSize: 10, fill: 'hsl(var(--text-secondary))' }} />
-                              <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--surface))', border: '1px solid hsl(var(--border))', borderRadius: '8px', fontSize: '12px' }} />
-                              <Line type="monotone" dataKey="score" stroke="#8B5CF6" strokeWidth={2} dot={{ r: 5, fill: '#8B5CF6' }} name="MMT">
-                                <LabelList dataKey="score" position="top" style={{ fontSize: 10, fill: '#8B5CF6', fontWeight: 600 }} />
-                              </Line>
-                            </LineChart>
-                          </ResponsiveContainer>
-                        </div>
-                      )
-                    })() : (
-                      <div className="flex h-24 items-center justify-center text-sm text-text-secondary">
-                        {isKo ? '다음 평가 후 비교 가능합니다.' : 'Comparison available after next assessment.'}
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              )}
-
-              {/* ── Hand Function 비교 카드 ── */}
-              {handStore.history.length > 0 && (
-                <Card>
-                  <CardHeader className="pb-3">
-                    <div className="flex items-center justify-between">
-                      <CardTitle className="text-sm">{isKo ? '손기능 검사' : 'Hand Function'}</CardTitle>
-                      <span className="text-xs text-text-secondary">Lt. / Rt.</span>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    {handCompareData.length >= 2 ? (() => {
-                      const prev = handCompareData[handCompareData.length - 2]
-                      const curr = handCompareData[handCompareData.length - 1]
-                      const leftDiff = curr.left - prev.left
-                      const rightDiff = curr.right - prev.right
-                      return (
-                        <div className="space-y-4">
-                          <div className="grid grid-cols-3 gap-3">
-                            <div className="rounded-lg border border-border bg-background p-3 text-center">
-                              <p className="text-[10px] text-text-secondary">{prev.date}</p>
-                              <p className="text-lg font-bold text-text-primary">Lt.{prev.left} / Rt.{prev.right}</p>
-                            </div>
-                            <div className="flex flex-col items-center justify-center gap-0.5">
-                              <div className="flex items-center gap-1">
-                                <span className="text-[10px] text-text-secondary">Lt.</span>
-                                <span className={cn('text-xs font-bold', leftDiff > 0 ? 'text-emerald-500' : leftDiff < 0 ? 'text-red-500' : 'text-text-secondary')}>
-                                  {leftDiff > 0 ? `+${leftDiff}` : leftDiff}
+                    </CardHeader>
+                    <CardContent className="px-4 pb-3 pt-1 flex-1">
+                      {bbsCompareData.length >= 2 ? (() => {
+                        const change = getChange(bbsCompareData)!
+                        const getRisk = (s: number) => s <= 20 ? (isKo ? '높은위험' : 'High') : s <= 40 ? (isKo ? '중간위험' : 'Med') : (isKo ? '낮은위험' : 'Low')
+                        const getRiskColor = (s: number) => s <= 20 ? 'text-red-500' : s <= 40 ? 'text-amber-500' : 'text-emerald-500'
+                        return (
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between rounded-lg bg-background px-3 py-1.5">
+                              <div className="text-center">
+                                <p className="text-sm font-bold text-text-primary">{change.prev}/56</p>
+                                <p className={cn('text-[9px] font-medium', getRiskColor(change.prev))}>{getRisk(change.prev)}</p>
+                              </div>
+                              <div className="flex items-center gap-1.5">
+                                {change.diff > 0 ? <ArrowUp className="h-3.5 w-3.5 text-emerald-500" /> : change.diff < 0 ? <ArrowDown className="h-3.5 w-3.5 text-red-500" /> : <Minus className="h-3.5 w-3.5 text-text-secondary" />}
+                                <span className={cn('text-xs font-bold', change.diff > 0 ? 'text-emerald-500' : change.diff < 0 ? 'text-red-500' : 'text-text-secondary')}>
+                                  {change.diff > 0 ? `+${change.diff}` : change.diff}
                                 </span>
                               </div>
-                              <div className="flex items-center gap-1">
-                                <span className="text-[10px] text-text-secondary">Rt.</span>
-                                <span className={cn('text-xs font-bold', rightDiff > 0 ? 'text-emerald-500' : rightDiff < 0 ? 'text-red-500' : 'text-text-secondary')}>
-                                  {rightDiff > 0 ? `+${rightDiff}` : rightDiff}
-                                </span>
+                              <div className="text-center">
+                                <p className="text-sm font-bold text-text-primary">{change.curr}/56</p>
+                                <p className={cn('text-[9px] font-medium', getRiskColor(change.curr))}>{getRisk(change.curr)}</p>
                               </div>
                             </div>
-                            <div className="rounded-lg border border-border bg-background p-3 text-center">
-                              <p className="text-[10px] text-text-secondary">{curr.date}</p>
-                              <p className="text-lg font-bold text-text-primary">Lt.{curr.left} / Rt.{curr.right}</p>
+                            <ResponsiveContainer width="100%" height={150}>
+                              <AreaChart data={bbsCompareData} margin={{ top: 15, right: 10, left: -20, bottom: 0 }}>
+                                <defs>
+                                  <linearGradient id="bbsGrad" x1="0" y1="0" x2="1" y2="0">
+                                    <stop offset="0%" stopColor="#8B5CF6" />
+                                    <stop offset="100%" stopColor="#EC4899" />
+                                  </linearGradient>
+                                  <linearGradient id="bbsFill" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="0%" stopColor="#8B5CF6" stopOpacity={0.3} />
+                                    <stop offset="100%" stopColor="#EC4899" stopOpacity={0.05} />
+                                  </linearGradient>
+                                </defs>
+                                <ReferenceArea y1={0} y2={20} fill="#FEE2E2" fillOpacity={0.25} />
+                                <ReferenceArea y1={20} y2={40} fill="#FEF3C7" fillOpacity={0.2} />
+                                <ReferenceArea y1={40} y2={56} fill="#D1FAE5" fillOpacity={0.2} />
+                                <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                                <XAxis dataKey="date" tick={{ fontSize: 9, fill: 'hsl(var(--text-secondary))' }} />
+                                <YAxis domain={[0, 56]} tick={{ fontSize: 9, fill: 'hsl(var(--text-secondary))' }} />
+                                <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--surface))', border: '1px solid hsl(var(--border))', borderRadius: '8px', fontSize: '11px' }} />
+                                <Area type="monotone" dataKey="score" stroke="url(#bbsGrad)" strokeWidth={3} fill="url(#bbsFill)" dot={{ r: 8, fill: '#8B5CF6', stroke: '#fff', strokeWidth: 2 }} activeDot={{ r: 10, fill: '#8B5CF6', stroke: '#fff', strokeWidth: 2 }} name="BBS">
+                                  <LabelList dataKey="score" position="top" offset={12} style={{ fontSize: 13, fill: '#7C3AED', fontWeight: 800 }} />
+                                </Area>
+                              </AreaChart>
+                            </ResponsiveContainer>
+                          </div>
+                        )
+                      })() : (
+                        <p className="py-6 text-center text-xs text-text-secondary">{isKo ? '다음 평가 후 비교 가능' : 'Need 2+ records'}</p>
+                      )}
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* ── FAC: 프로그레스 바 비교 ── */}
+                {facStore.history.length > 0 && (
+                  <Card className="min-h-[300px] flex flex-col">
+                    <CardHeader className="px-4 py-2.5 pb-1">
+                      <div className="flex items-center justify-between">
+                        <CardTitle className="text-xs font-bold">FAC</CardTitle>
+                        <span className="text-[10px] text-text-secondary">Level 0-5</span>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="px-4 pb-3 pt-1 flex-1">
+                      {(() => {
+                        const sorted = [...facStore.history].sort((a, b) => a.timestamp - b.timestamp)
+                        const curr = sorted[sorted.length - 1]
+                        const prev = sorted.length >= 2 ? sorted[sorted.length - 2] : null
+                        const getDesc = (l: number) => l <= 1 ? (isKo ? '보조필요' : 'Assisted') : l <= 3 ? (isKo ? '감독필요' : 'Supervised') : (isKo ? '독립보행' : 'Independent')
+                        return (
+                          <div className="space-y-3">
+                            {/* 비교 행 */}
+                            {prev && (
+                              <div className="flex items-center justify-between rounded-lg bg-background px-3 py-1.5">
+                                <div className="text-center">
+                                  <p className="text-sm font-bold text-text-primary">Lv.{prev.level}</p>
+                                  <p className="text-[9px] text-text-secondary">{getDesc(prev.level)}</p>
+                                </div>
+                                <div className="flex items-center gap-1.5">
+                                  {curr.level > prev.level ? <ArrowUp className="h-3.5 w-3.5 text-emerald-500" /> : curr.level < prev.level ? <ArrowDown className="h-3.5 w-3.5 text-red-500" /> : <Minus className="h-3.5 w-3.5 text-text-secondary" />}
+                                  <span className={cn('text-xs font-bold', curr.level > prev.level ? 'text-emerald-500' : curr.level < prev.level ? 'text-red-500' : 'text-text-secondary')}>
+                                    {curr.level - prev.level > 0 ? `+${curr.level - prev.level}` : curr.level - prev.level}
+                                  </span>
+                                </div>
+                                <div className="text-center">
+                                  <p className="text-sm font-bold text-text-primary">Lv.{curr.level}</p>
+                                  <p className="text-[9px] text-text-secondary">{getDesc(curr.level)}</p>
+                                </div>
+                              </div>
+                            )}
+                            {/* 게이지 바 */}
+                            <div className="space-y-2 pt-1">
+                              {prev && (
+                                <div>
+                                  <div className="flex items-center justify-between mb-1">
+                                    <span className="text-[9px] text-text-secondary">{isKo ? '이전' : 'Prev'}</span>
+                                    <span className="text-[9px] font-medium text-text-secondary">Lv.{prev.level}/5</span>
+                                  </div>
+                                  <div className="h-3 w-full rounded-full bg-gray-100 dark:bg-gray-800 overflow-hidden">
+                                    <div className="h-full rounded-full bg-gray-300 dark:bg-gray-600 transition-all" style={{ width: `${(prev.level / 5) * 100}%` }} />
+                                  </div>
+                                </div>
+                              )}
+                              <div>
+                                <div className="flex items-center justify-between mb-1">
+                                  <span className="text-[9px] text-text-secondary">{isKo ? '현재' : 'Current'}</span>
+                                  <span className="text-[9px] font-bold text-pink-500">Lv.{curr.level}/5</span>
+                                </div>
+                                <div className="h-3 w-full rounded-full bg-gray-100 dark:bg-gray-800 overflow-hidden">
+                                  <div className="h-full rounded-full bg-gradient-to-r from-pink-400 to-pink-500 transition-all" style={{ width: `${(curr.level / 5) * 100}%` }} />
+                                </div>
+                              </div>
+                              {/* 레벨 눈금 */}
+                              <div className="flex justify-between px-0.5">
+                                {[0, 1, 2, 3, 4, 5].map((lv) => (
+                                  <span key={lv} className={cn('text-[8px]', lv === curr.level ? 'font-bold text-pink-500' : 'text-text-secondary')}>{lv}</span>
+                                ))}
+                              </div>
                             </div>
                           </div>
-                          <ResponsiveContainer width="100%" height={180}>
-                            <LineChart data={handCompareData} margin={{ top: 15, right: 20, left: -10, bottom: 5 }}>
-                              <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                              <XAxis dataKey="date" tick={{ fontSize: 10, fill: 'hsl(var(--text-secondary))' }} />
-                              <YAxis tick={{ fontSize: 10, fill: 'hsl(var(--text-secondary))' }} />
-                              <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--surface))', border: '1px solid hsl(var(--border))', borderRadius: '8px', fontSize: '12px' }} />
-                              <Line type="monotone" dataKey="left" stroke="#EC4899" strokeWidth={2} dot={{ r: 4, fill: '#EC4899' }} name={isKo ? '좌측' : 'Left'}>
-                                <LabelList dataKey="left" position="top" style={{ fontSize: 9, fill: '#EC4899', fontWeight: 600 }} />
-                              </Line>
-                              <Line type="monotone" dataKey="right" stroke="#6366F1" strokeWidth={2} dot={{ r: 4, fill: '#6366F1' }} name={isKo ? '우측' : 'Right'}>
-                                <LabelList dataKey="right" position="bottom" style={{ fontSize: 9, fill: '#6366F1', fontWeight: 600 }} />
-                              </Line>
-                              <Legend />
-                            </LineChart>
-                          </ResponsiveContainer>
-                        </div>
-                      )
-                    })() : (
-                      <div className="flex h-24 items-center justify-center text-sm text-text-secondary">
-                        {isKo ? '다음 평가 후 비교 가능합니다.' : 'Comparison available after next assessment.'}
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              )}
+                        )
+                      })()}
+                    </CardContent>
+                  </Card>
+                )}
 
-              {/* ── ROM 비교 카드 ── */}
-              {romStore.history.length > 0 && (
-                <Card>
-                  <CardHeader className="pb-3">
-                    <div className="flex items-center justify-between">
-                      <CardTitle className="text-sm">ROM (Range of Motion)</CardTitle>
-                      <span className="text-xs text-text-secondary">{isKo ? '관절 가동 범위' : 'Joint Range'}</span>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    {romStore.history.length >= 2 ? (() => {
-                      const sorted = [...romStore.history].sort((a, b) => a.timestamp - b.timestamp)
-                      const prev = sorted[sorted.length - 2]
-                      const curr = sorted[sorted.length - 1]
-                      const prevDate = new Date(prev.timestamp).toLocaleDateString(isKo ? 'ko-KR' : 'en-US', { month: 'short', day: 'numeric' })
-                      const currDate = new Date(curr.timestamp).toLocaleDateString(isKo ? 'ko-KR' : 'en-US', { month: 'short', day: 'numeric' })
-                      const prevCount = Object.keys(prev.scores).length
-                      const currCount = Object.keys(curr.scores).length
-                      return (
-                        <div className="grid grid-cols-3 gap-3">
-                          <div className="rounded-lg border border-border bg-background p-3 text-center">
-                            <p className="text-[10px] text-text-secondary">{prevDate}</p>
-                            <p className="text-lg font-bold text-text-primary">{prevCount}</p>
-                            <p className="text-[11px] text-text-secondary">{isKo ? '관절 측정' : 'joints'}</p>
-                          </div>
-                          <div className="flex flex-col items-center justify-center">
-                            <TrendingUp className="h-5 w-5 text-cyan-500" />
-                            <p className="text-[10px] text-text-secondary mt-1">{isKo ? '측정 비교' : 'Compared'}</p>
-                          </div>
-                          <div className="rounded-lg border border-border bg-background p-3 text-center">
-                            <p className="text-[10px] text-text-secondary">{currDate}</p>
-                            <p className="text-lg font-bold text-text-primary">{currCount}</p>
-                            <p className="text-[11px] text-text-secondary">{isKo ? '관절 측정' : 'joints'}</p>
-                          </div>
-                        </div>
-                      )
-                    })() : (
-                      <div className="flex h-24 items-center justify-center text-sm text-text-secondary">
-                        {isKo ? '다음 평가 후 비교 가능합니다.' : 'Comparison available after next assessment.'}
+                {/* ── MBI: 도넛 또는 라인 ── */}
+                {mbiStore.history.length > 0 && (
+                  <Card className="min-h-[300px] flex flex-col">
+                    <CardHeader className="px-4 py-2.5 pb-1">
+                      <div className="flex items-center justify-between">
+                        <CardTitle className="text-xs font-bold">MBI</CardTitle>
+                        <span className="text-[10px] text-text-secondary">0-100</span>
                       </div>
-                    )}
-                  </CardContent>
-                </Card>
-              )}
+                    </CardHeader>
+                    <CardContent className="px-4 pb-3 pt-1 flex-1">
+                      {mbiCompareData.length >= 2 ? (() => {
+                        const change = getChange(mbiCompareData)!
+                        const getDep = (s: number) => s >= 91 ? (isKo ? '독립' : 'Indep') : s >= 50 ? (isKo ? '부분' : 'Partial') : (isKo ? '의존' : 'Dep')
+                        const getDepColor = (s: number) => s >= 91 ? 'text-emerald-500' : s >= 50 ? 'text-amber-500' : 'text-red-500'
+                        return (
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between rounded-lg bg-background px-3 py-1.5">
+                              <div className="text-center">
+                                <p className="text-sm font-bold text-text-primary">{change.prev}/100</p>
+                                <p className={cn('text-[9px] font-medium', getDepColor(change.prev))}>{getDep(change.prev)}</p>
+                              </div>
+                              <div className="flex items-center gap-1.5">
+                                {change.diff > 0 ? <ArrowUp className="h-3.5 w-3.5 text-emerald-500" /> : change.diff < 0 ? <ArrowDown className="h-3.5 w-3.5 text-red-500" /> : <Minus className="h-3.5 w-3.5 text-text-secondary" />}
+                                <span className={cn('text-xs font-bold', change.diff > 0 ? 'text-emerald-500' : change.diff < 0 ? 'text-red-500' : 'text-text-secondary')}>
+                                  {change.diff > 0 ? `+${change.diff}` : change.diff}
+                                </span>
+                              </div>
+                              <div className="text-center">
+                                <p className="text-sm font-bold text-text-primary">{change.curr}/100</p>
+                                <p className={cn('text-[9px] font-medium', getDepColor(change.curr))}>{getDep(change.curr)}</p>
+                              </div>
+                            </div>
+                            <ResponsiveContainer width="100%" height={150}>
+                              <AreaChart data={mbiCompareData} margin={{ top: 15, right: 10, left: -20, bottom: 0 }}>
+                                <defs>
+                                  <linearGradient id="mbiFill" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="0%" stopColor="#10B981" stopOpacity={0.3} />
+                                    <stop offset="100%" stopColor="#10B981" stopOpacity={0.02} />
+                                  </linearGradient>
+                                </defs>
+                                <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                                <XAxis dataKey="date" tick={{ fontSize: 9, fill: 'hsl(var(--text-secondary))' }} />
+                                <YAxis domain={[0, 100]} tick={{ fontSize: 9, fill: 'hsl(var(--text-secondary))' }} />
+                                <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--surface))', border: '1px solid hsl(var(--border))', borderRadius: '8px', fontSize: '11px' }} />
+                                <Area type="monotone" dataKey="score" stroke="#10B981" strokeWidth={2} fill="url(#mbiFill)" dot={{ r: 4, fill: '#10B981', stroke: '#fff', strokeWidth: 2 }} name="MBI">
+                                  <LabelList dataKey="score" position="top" style={{ fontSize: 10, fill: '#059669', fontWeight: 700 }} />
+                                </Area>
+                              </AreaChart>
+                            </ResponsiveContainer>
+                          </div>
+                        )
+                      })() : (() => {
+                        // 1개: 도넛 차트로 현재 점수 표시
+                        const latest = mbiStore.history[0]
+                        const score = latest.totalScore
+                        const getDep = (s: number) => s >= 91 ? (isKo ? '독립' : 'Independent') : s >= 50 ? (isKo ? '부분의존' : 'Partial') : (isKo ? '의존' : 'Dependent')
+                        const donutData = [{ name: 'score', value: score }, { name: 'rest', value: 100 - score }]
+                        return (
+                          <div className="flex flex-col items-center">
+                            <ResponsiveContainer width="100%" height={130}>
+                              <PieChart>
+                                <Pie data={donutData} cx="50%" cy="50%" innerRadius={35} outerRadius={50} startAngle={90} endAngle={-270} dataKey="value" stroke="none">
+                                  <Cell fill="#10B981" />
+                                  <Cell fill="#E5E7EB" />
+                                </Pie>
+                              </PieChart>
+                            </ResponsiveContainer>
+                            <div className="-mt-[85px] text-center mb-6">
+                              <p className="text-lg font-bold text-text-primary">{score}</p>
+                              <p className="text-[9px] text-text-secondary">/100</p>
+                            </div>
+                            <p className="text-[10px] text-emerald-600 font-medium">{getDep(score)}</p>
+                          </div>
+                        )
+                      })()}
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* ── MMT: 레이더 차트 ── */}
+                {mmtStore.history.length > 0 && (
+                  <Card className="min-h-[300px] flex flex-col">
+                    <CardHeader className="px-4 py-2.5 pb-1">
+                      <div className="flex items-center justify-between">
+                        <CardTitle className="text-xs font-bold">MMT</CardTitle>
+                        <span className="text-[10px] text-text-secondary">Grade 0-5</span>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="px-4 pb-3 pt-1 flex-1">
+                      {mmtRadarData.length > 0 ? (() => {
+                        const hasPrev = mmtStore.history.length >= 2
+                        const change = mmtCompareData.length >= 2 ? getChange(mmtCompareData) : null
+                        const currentAvg = mmtCompareData.length > 0 ? mmtCompareData[mmtCompareData.length - 1].score : 0
+                        return (
+                          <div className="space-y-2">
+                            {change ? (
+                              <div className="flex items-center justify-between rounded-lg bg-background px-3 py-1.5">
+                                <div className="text-center">
+                                  <p className="text-sm font-bold text-text-primary">{change.prev}</p>
+                                  <p className="text-[9px] text-text-secondary">{isKo ? '이전' : 'Prev'}</p>
+                                </div>
+                                <div className="flex items-center gap-1.5">
+                                  {change.diff > 0 ? <ArrowUp className="h-3.5 w-3.5 text-emerald-500" /> : change.diff < 0 ? <ArrowDown className="h-3.5 w-3.5 text-red-500" /> : <Minus className="h-3.5 w-3.5 text-text-secondary" />}
+                                  <span className={cn('text-xs font-bold', change.diff > 0 ? 'text-emerald-500' : change.diff < 0 ? 'text-red-500' : 'text-text-secondary')}>
+                                    {change.diff > 0 ? `+${change.diff}` : change.diff}
+                                  </span>
+                                </div>
+                                <div className="text-center">
+                                  <p className="text-sm font-bold text-text-primary">{change.curr}</p>
+                                  <p className="text-[9px] text-text-secondary">{isKo ? '현재' : 'Current'}</p>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="flex items-center justify-center rounded-lg bg-background px-3 py-2">
+                                <p className="text-sm font-bold text-text-primary">{isKo ? '현재' : 'Current'} {currentAvg}</p>
+                                <span className="ml-2 text-[9px] text-text-secondary">{isKo ? '평균등급' : 'Avg Grade'}</span>
+                              </div>
+                            )}
+                            <ResponsiveContainer width="100%" height={150}>
+                              <RadarChart data={mmtRadarData} cx="50%" cy="50%" outerRadius="70%">
+                                <PolarGrid stroke="hsl(var(--border))" />
+                                <PolarAngleAxis dataKey="muscle" tick={{ fontSize: 8, fill: 'hsl(var(--text-secondary))' }} />
+                                <PolarRadiusAxis angle={90} domain={[0, 5]} tick={{ fontSize: 8, fill: 'hsl(var(--text-secondary))' }} tickCount={6} />
+                                {hasPrev && (
+                                  <Radar name={isKo ? '이전' : 'Prev'} dataKey="previous" stroke="#9CA3AF" fill="#9CA3AF" fillOpacity={0.15} strokeWidth={1.5} strokeDasharray="4 3" />
+                                )}
+                                <Radar name={isKo ? '현재' : 'Current'} dataKey="current" stroke="#EC4899" fill="#EC4899" fillOpacity={0.25} strokeWidth={2} />
+                                {hasPrev && <Legend iconSize={8} wrapperStyle={{ fontSize: '9px' }} />}
+                                <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--surface))', border: '1px solid hsl(var(--border))', borderRadius: '8px', fontSize: '11px' }} />
+                              </RadarChart>
+                            </ResponsiveContainer>
+                          </div>
+                        )
+                      })() : (
+                        <p className="py-6 text-center text-xs text-text-secondary">{isKo ? '데이터 없음' : 'No data'}</p>
+                      )}
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* ── Hand: 좌우 비교 바 차트 / 도넛 ── */}
+                {handStore.history.length > 0 && (
+                  <Card className="min-h-[300px] flex flex-col">
+                    <CardHeader className="px-4 py-2.5 pb-1">
+                      <div className="flex items-center justify-between">
+                        <CardTitle className="text-xs font-bold">{isKo ? '손기능' : 'Hand'}</CardTitle>
+                        <span className="text-[10px] text-text-secondary">Lt. / Rt.</span>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="px-4 pb-3 pt-1 flex-1">
+                      {handCompareData.length >= 2 ? (() => {
+                        const prev = handCompareData[handCompareData.length - 2]
+                        const curr = handCompareData[handCompareData.length - 1]
+                        const leftDiff = curr.left - prev.left
+                        const rightDiff = curr.right - prev.right
+                        return (
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between rounded-lg bg-background px-3 py-1.5">
+                              <p className="text-xs font-bold text-text-primary">Lt.{prev.left} Rt.{prev.right}</p>
+                              <div className="flex items-center gap-2">
+                                <span className={cn('text-[10px] font-bold', leftDiff > 0 ? 'text-emerald-500' : leftDiff < 0 ? 'text-red-500' : 'text-text-secondary')}>
+                                  L{leftDiff > 0 ? `+${leftDiff}` : leftDiff}
+                                </span>
+                                <span className={cn('text-[10px] font-bold', rightDiff > 0 ? 'text-emerald-500' : rightDiff < 0 ? 'text-red-500' : 'text-text-secondary')}>
+                                  R{rightDiff > 0 ? `+${rightDiff}` : rightDiff}
+                                </span>
+                              </div>
+                              <p className="text-xs font-bold text-text-primary">Lt.{curr.left} Rt.{curr.right}</p>
+                            </div>
+                            <ResponsiveContainer width="100%" height={150}>
+                              <BarChart data={[
+                                { name: isKo ? '이전' : 'Prev', lt: prev.left, rt: prev.right },
+                                { name: isKo ? '현재' : 'Current', lt: curr.left, rt: curr.right },
+                              ]} margin={{ top: 12, right: 10, left: -10, bottom: 0 }}>
+                                <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                                <XAxis dataKey="name" tick={{ fontSize: 10, fill: 'hsl(var(--text-secondary))' }} />
+                                <YAxis tick={{ fontSize: 9, fill: 'hsl(var(--text-secondary))' }} />
+                                <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--surface))', border: '1px solid hsl(var(--border))', borderRadius: '8px', fontSize: '11px' }} />
+                                <Bar dataKey="lt" fill="#EC4899" radius={[3, 3, 0, 0]} name={isKo ? '환측(Lt)' : 'Affected(Lt)'}>
+                                  <LabelList dataKey="lt" position="top" style={{ fontSize: 9, fill: '#EC4899', fontWeight: 600 }} />
+                                </Bar>
+                                <Bar dataKey="rt" fill="#8B5CF6" radius={[3, 3, 0, 0]} name={isKo ? '건측(Rt)' : 'Sound(Rt)'}>
+                                  <LabelList dataKey="rt" position="top" style={{ fontSize: 9, fill: '#8B5CF6', fontWeight: 600 }} />
+                                </Bar>
+                                <Legend iconSize={8} wrapperStyle={{ fontSize: '9px' }} />
+                              </BarChart>
+                            </ResponsiveContainer>
+                          </div>
+                        )
+                      })() : (() => {
+                        // 1개: 좌우 비교 바 차트
+                        const latest = handStore.history[0]
+                        return (
+                          <div>
+                            <ResponsiveContainer width="100%" height={150}>
+                              <BarChart data={[
+                                { name: isKo ? '현재' : 'Current', lt: latest.leftTotalScore, rt: latest.rightTotalScore },
+                              ]} margin={{ top: 12, right: 10, left: -10, bottom: 0 }}>
+                                <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                                <XAxis dataKey="name" tick={{ fontSize: 10, fill: 'hsl(var(--text-secondary))' }} />
+                                <YAxis tick={{ fontSize: 9, fill: 'hsl(var(--text-secondary))' }} />
+                                <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--surface))', border: '1px solid hsl(var(--border))', borderRadius: '8px', fontSize: '11px' }} />
+                                <Bar dataKey="lt" fill="#EC4899" radius={[4, 4, 0, 0]} name={isKo ? '환측(Lt)' : 'Affected(Lt)'}>
+                                  <LabelList dataKey="lt" position="top" style={{ fontSize: 10, fill: '#EC4899', fontWeight: 700 }} />
+                                </Bar>
+                                <Bar dataKey="rt" fill="#8B5CF6" radius={[4, 4, 0, 0]} name={isKo ? '건측(Rt)' : 'Sound(Rt)'}>
+                                  <LabelList dataKey="rt" position="top" style={{ fontSize: 10, fill: '#8B5CF6', fontWeight: 700 }} />
+                                </Bar>
+                                <Legend iconSize={8} wrapperStyle={{ fontSize: '9px' }} />
+                              </BarChart>
+                            </ResponsiveContainer>
+                            <p className="text-center text-[9px] text-text-secondary mt-1">Lt.{latest.leftTotalScore} / Rt.{latest.rightTotalScore}</p>
+                          </div>
+                        )
+                      })()}
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* ── ROM ── */}
+                {romStore.history.length > 0 && (
+                  <Card className="min-h-[300px] flex flex-col">
+                    <CardHeader className="px-4 py-2.5 pb-1">
+                      <div className="flex items-center justify-between">
+                        <CardTitle className="text-xs font-bold">ROM</CardTitle>
+                        <span className="text-[10px] text-text-secondary">{isKo ? '관절가동범위' : 'Joint Range'}</span>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="px-4 pb-3 pt-1 flex-1">
+                      {romStore.history.length >= 2 ? (() => {
+                        const sorted = [...romStore.history].sort((a, b) => a.timestamp - b.timestamp)
+                        const prev = sorted[sorted.length - 2]
+                        const curr = sorted[sorted.length - 1]
+                        const prevDate = new Date(prev.timestamp).toLocaleDateString(isKo ? 'ko-KR' : 'en-US', { month: 'short', day: 'numeric' })
+                        const currDate = new Date(curr.timestamp).toLocaleDateString(isKo ? 'ko-KR' : 'en-US', { month: 'short', day: 'numeric' })
+                        const prevCount = Object.keys(prev.scores).length
+                        const currCount = Object.keys(curr.scores).length
+                        return (
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between rounded-lg bg-background px-3 py-1.5">
+                              <div className="text-center">
+                                <p className="text-sm font-bold text-text-primary">{prevCount}</p>
+                                <p className="text-[9px] text-text-secondary">{prevDate}</p>
+                              </div>
+                              <div className="flex items-center gap-1.5">
+                                <TrendingUp className="h-3.5 w-3.5 text-cyan-500" />
+                                <span className="text-[10px] text-text-secondary">{isKo ? '관절' : 'joints'}</span>
+                              </div>
+                              <div className="text-center">
+                                <p className="text-sm font-bold text-text-primary">{currCount}</p>
+                                <p className="text-[9px] text-text-secondary">{currDate}</p>
+                              </div>
+                            </div>
+                            <div className="flex flex-wrap gap-1 pt-1">
+                              {Object.keys(curr.scores).map((jointId) => (
+                                <span key={jointId} className="rounded bg-cyan-50 px-1.5 py-0.5 text-[9px] font-medium text-cyan-700 dark:bg-cyan-500/10 dark:text-cyan-400">
+                                  {jointId.replace(/_/g, ' ')}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )
+                      })() : (() => {
+                        // 1개: 도넛으로 측정 관절 수 표시
+                        const latest = romStore.history[0]
+                        const count = Object.keys(latest.scores).length
+                        const total = 7
+                        const donutData = [{ name: 'measured', value: count }, { name: 'rest', value: total - count }]
+                        return (
+                          <div className="flex flex-col items-center">
+                            <ResponsiveContainer width="100%" height={120}>
+                              <PieChart>
+                                <Pie data={donutData} cx="50%" cy="50%" innerRadius={30} outerRadius={45} startAngle={90} endAngle={-270} dataKey="value" stroke="none">
+                                  <Cell fill="#06B6D4" />
+                                  <Cell fill="#E5E7EB" />
+                                </Pie>
+                              </PieChart>
+                            </ResponsiveContainer>
+                            <div className="-mt-[78px] text-center mb-5">
+                              <p className="text-lg font-bold text-text-primary">{count}</p>
+                              <p className="text-[9px] text-text-secondary">/{total}</p>
+                            </div>
+                            <p className="text-[10px] text-cyan-600 font-medium">{isKo ? '관절 측정됨' : 'joints measured'}</p>
+                          </div>
+                        )
+                      })()}
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
 
               {/* 모든 평가 기록이 0개면 안내 */}
               {bbsStore.history.length === 0 && facStore.history.length === 0 && mbiStore.history.length === 0 && mmtStore.history.length === 0 && handStore.history.length === 0 && romStore.history.length === 0 && (
@@ -866,49 +1093,12 @@ export default function DataRecordsPage() {
 
           {/* === 재활이행률 === */}
           {activeTab === 'compliance' && (
-            <div className="space-y-6">
-              {/* 주간 이행률 바 차트 */}
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm">{isKo ? '주간 재활이행률 추이' : 'Weekly Compliance Trend'}</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <ResponsiveContainer width="100%" height={280}>
-                    <BarChart data={complianceData} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
-                      <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                      <XAxis dataKey="week" tick={{ fontSize: 10, fill: 'hsl(var(--text-secondary))' }} />
-                      <YAxis domain={[0, 100]} tick={{ fontSize: 10, fill: 'hsl(var(--text-secondary))' }} unit="%" />
-                      <Tooltip
-                        formatter={(value: number) => [`${value}%`, isKo ? '이행률' : 'Compliance']}
-                        contentStyle={{ backgroundColor: 'hsl(var(--surface))', border: '1px solid hsl(var(--border))', borderRadius: '8px', fontSize: '12px' }}
-                      />
-                      <Bar dataKey="rate" fill="hsl(var(--primary))" radius={[6, 6, 0, 0]} name={isKo ? '이행률' : 'Rate'} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </CardContent>
-              </Card>
-
-              {/* 운동 통계 카드 */}
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-                <Card>
-                  <CardContent className="p-5">
-                    <p className="text-xs text-text-secondary">{isKo ? '총 운동 세션' : 'Total Sessions'}</p>
-                    <p className="mt-1 text-3xl font-bold text-text-primary">{stats.totalSessions}</p>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardContent className="p-5">
-                    <p className="text-xs text-text-secondary">{isKo ? '총 운동 시간' : 'Total Time'}</p>
-                    <p className="mt-1 text-3xl font-bold text-text-primary">{formatTime(stats.totalTime)}</p>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardContent className="p-5">
-                    <p className="text-xs text-text-secondary">{isKo ? '평균 정확도' : 'Avg Accuracy'}</p>
-                    <p className="mt-1 text-3xl font-bold text-text-primary">{stats.averageAccuracy.toFixed(1)}%</p>
-                  </CardContent>
-                </Card>
-              </div>
+            <div className="flex items-center justify-center py-24">
+              <p className="text-center text-sm text-text-secondary">
+                {isKo
+                  ? '운동 처방 기능 연동 후 재활이행률을 확인할 수 있습니다.'
+                  : 'Rehabilitation compliance will be available after exercise prescription integration.'}
+              </p>
             </div>
           )}
         </motion.div>

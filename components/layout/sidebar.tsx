@@ -13,10 +13,10 @@ import {
   Moon,
   Sun,
   Monitor,
+  MonitorSmartphone,
   ChevronLeft,
   ChevronRight,
   Palette,
-  UserCheck,
   Gamepad2,
   Database,
 } from 'lucide-react'
@@ -31,7 +31,6 @@ const navItems = [
   { href: '/gait-analysis', icon: ClipboardList, labelKey: 'nav.assessmentTools' },
   { href: '/exercise/games', icon: Gamepad2, labelKey: 'nav.games' },
   { href: '/data-records', icon: Database, labelKey: 'nav.dataRecords' },
-  { href: '/patient-guide', icon: UserCheck, labelKey: 'nav.patientGuide' },
   { href: '/settings', icon: Settings, labelKey: 'nav.settings' },
 ]
 
@@ -131,6 +130,28 @@ export function Sidebar() {
             </Link>
           )
         })}
+
+        {/* 환자 대시보드 (새 탭으로 열림) */}
+        <a
+          href="/patient"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-3 rounded-lg px-3 py-2 transition-colors text-text-secondary hover:bg-background hover:text-text-primary"
+        >
+          <MonitorSmartphone className="h-5 w-5 flex-shrink-0" />
+          <AnimatePresence mode="wait">
+            {!isCollapsed && (
+              <motion.span
+                initial={{ opacity: 0, width: 0 }}
+                animate={{ opacity: 1, width: 'auto' }}
+                exit={{ opacity: 0, width: 0 }}
+                className="truncate text-sm font-medium"
+              >
+                {t('nav.patientDashboard')}
+              </motion.span>
+            )}
+          </AnimatePresence>
+        </a>
       </nav>
 
       {/* Theme Section */}

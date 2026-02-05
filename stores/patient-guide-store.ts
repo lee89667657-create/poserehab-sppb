@@ -16,20 +16,20 @@ export interface GuideItem {
 
 // BBS 가이드 데이터
 export const BBS_GUIDES: Record<number, { instruction: string; instructionEn: string; duration?: number; icon: string }> = {
-  1: { instruction: '의자에서 일어나 주세요', instructionEn: 'Please stand up from the chair', icon: 'stand-up' },
-  2: { instruction: '2분간 서 계세요', instructionEn: 'Please stand for 2 minutes', duration: 120, icon: 'standing' },
-  3: { instruction: '등받이 없이 2분간 앉아 계세요', instructionEn: 'Please sit without back support for 2 minutes', duration: 120, icon: 'sitting' },
-  4: { instruction: '의자에 앉아 주세요', instructionEn: 'Please sit down on the chair', icon: 'sit-down' },
-  5: { instruction: '옆 의자로 이동해 주세요', instructionEn: 'Please transfer to the side chair', icon: 'transfer' },
-  6: { instruction: '눈을 감고 10초간 서 계세요', instructionEn: 'Please stand with eyes closed for 10 seconds', duration: 10, icon: 'eyes-closed' },
-  7: { instruction: '양발을 모으고 서 계세요', instructionEn: 'Please stand with feet together', duration: 60, icon: 'feet-together' },
-  8: { instruction: '팔을 앞으로 쭉 뻗어 주세요', instructionEn: 'Please reach forward with outstretched arm', icon: 'reach-forward' },
-  9: { instruction: '바닥의 물건을 집어 주세요', instructionEn: 'Please pick up the object from the floor', icon: 'pick-up' },
-  10: { instruction: '뒤를 돌아봐 주세요', instructionEn: 'Please turn to look behind you', icon: 'look-behind' },
-  11: { instruction: '제자리에서 한 바퀴 돌아 주세요', instructionEn: 'Please turn 360 degrees', icon: 'turn-360' },
-  12: { instruction: '발판에 발을 번갈아 올려 주세요', instructionEn: 'Please place alternate foot on step', icon: 'step-up' },
-  13: { instruction: '한 발을 앞에 두고 서 주세요', instructionEn: 'Please stand with one foot in front', duration: 30, icon: 'tandem' },
-  14: { instruction: '한 발로 서 주세요', instructionEn: 'Please stand on one leg', duration: 10, icon: 'one-leg' },
+  1: { instruction: '의자에서 일어나 보세요. 손을 사용하지 말고 일어나 보세요.', instructionEn: 'Stand up from the chair. Try not to use your hands.', icon: 'stand-up' },
+  2: { instruction: '아무것도 잡지 말고 2분간 서 계세요.', instructionEn: 'Stand for 2 minutes without holding anything.', duration: 120, icon: 'standing' },
+  3: { instruction: '팔짱을 끼고 2분간 앉아 계세요.', instructionEn: 'Sit with arms folded for 2 minutes.', duration: 120, icon: 'sitting' },
+  4: { instruction: '천천히 앉아 보세요.', instructionEn: 'Please sit down slowly.', icon: 'sit-down' },
+  5: { instruction: '의자에서 다른 의자로 옮겨 앉으세요. 한쪽은 팔걸이가 있는 의자, 한쪽은 없는 의자입니다.', instructionEn: 'Transfer from one chair to another. One chair has armrests, the other does not.', icon: 'transfer' },
+  6: { instruction: '눈을 감고 10초간 서 계세요.', instructionEn: 'Close your eyes and stand for 10 seconds.', duration: 10, icon: 'eyes-closed' },
+  7: { instruction: '두 발을 모으고 서 계세요.', instructionEn: 'Stand with your feet together.', duration: 60, icon: 'feet-together' },
+  8: { instruction: '팔을 90도로 들고, 손끝을 가능한 한 앞으로 쭉 뻗어 보세요.', instructionEn: 'Raise your arms to 90 degrees and reach forward as far as you can.', icon: 'reach-forward' },
+  9: { instruction: '발 앞에 놓인 물건을 주워 보세요.', instructionEn: 'Pick up the object placed in front of your feet.', icon: 'pick-up' },
+  10: { instruction: '왼쪽 어깨 너머로 뒤를 돌아보세요. 오른쪽도 해 보세요.', instructionEn: 'Turn to look behind over your left shoulder. Then try the right side.', icon: 'look-behind' },
+  11: { instruction: '제자리에서 한 바퀴 돌아 보세요. 반대 방향으로도 한 바퀴 돌아 보세요.', instructionEn: 'Turn a full circle in place. Then turn in the opposite direction.', icon: 'turn-360' },
+  12: { instruction: '발판 위에 발을 번갈아 올려 보세요.', instructionEn: 'Place each foot alternately on the step.', icon: 'step-up' },
+  13: { instruction: '한 발을 다른 발 바로 앞에 놓고 서 보세요.', instructionEn: 'Place one foot directly in front of the other and stand.', duration: 30, icon: 'tandem' },
+  14: { instruction: '잡지 말고 한 발로 서 보세요.', instructionEn: 'Stand on one leg without holding anything.', duration: 10, icon: 'one-leg' },
 }
 
 // Hand Function 가이드 데이터
