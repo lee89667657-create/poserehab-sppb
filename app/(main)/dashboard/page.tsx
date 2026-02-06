@@ -2,15 +2,19 @@
 
 import { useMemo } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import {
   ClipboardCheck,
   Dumbbell,
-  Users,
   TrendingUp,
   ChevronRight,
   Calendar,
-  FileText,
+  Activity,
+  User,
+  Heart,
+  ArrowUpRight,
+  Users,
 } from 'lucide-react'
 import {
   PieChart, Pie, Cell, ResponsiveContainer,
@@ -18,140 +22,158 @@ import {
 } from 'recharts'
 import { MainLayout } from '@/components/layout/main-layout'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
 import { useTranslation } from '@/hooks/use-translation'
-import { useExerciseStore } from '@/stores/exercise-store'
-import { useBBSStore } from '@/stores/bbs-store'
-import { useMMTStore } from '@/stores/mmt-store'
-import { useFACStore } from '@/stores/fac-store'
-import { useMBIStore } from '@/stores/mbi-store'
+import { usePatientContextStore } from '@/stores/patient-context-store'
+import { usePatientAssessments } from '@/hooks/use-patient-assessments'
 import { cn } from '@/lib/utils'
+import { supabase } from '@/lib/supabase'
+import { useState, useEffect } from 'react'
+import type { Patient } from '@/types/database'
 
 export default function DashboardPage() {
-  const { t, language } = useTranslation()
-  const { exerciseRecords } = useExerciseStore()
-  const bbsStore = useBBSStore()
-  const mmtStore = useMMTStore()
-  const facStore = useFACStore()
-  const mbiStore = useMBIStore()
+  const router = useRouter()
+  const { language } = useTranslation()
+  const { selectedPatientId, selectedPatientName } = usePatientContextStore()
 
-  // 오늘 날짜
-  const today = new Date().toISOString().split('T')[0]
+  const [patient, setPatient] = useState<Patient | null>(null)
+  const { trendData, clinicalComments, assessmentList, isLoading } = usePatientAssessments(selectedPatientId || undefined)
 
-  // 모든 평가 기록 통합
-  const allAssessments = useMemo(() => {
-    const items: { id: string; type: string; timestamp: number; score?: number; label: string }[] = []
+  // 환자 정보 가져오기
+  useEffect(() => {
+    if (!selectedPatientId) return
+    supabase
+      .from('patients')
+      .select('*')
+      .eq('id', selectedPatientId)
+      .single()
+      .then(({ data }) => {
+        if (data) setPatient(data as Patient)
+      })
+  }, [selectedPatientId])
 
-    bbsStore.history.forEach((r) => {
-      items.push({ id: r.id, type: 'BBS', timestamp: r.timestamp, score: r.totalScore, label: `BBS ${r.totalScore}/56` })
-    })
-    mmtStore.history.forEach((r) => {
-      items.push({ id: r.id, type: 'MMT', timestamp: r.timestamp, label: 'MMT' })
-    })
-    facStore.history.forEach((r: { id: string; timestamp: number; level: number }) => {
-      items.push({ id: r.id, type: 'FAC', timestamp: r.timestamp, score: r.level, label: `FAC ${r.level}` })
-    })
-    mbiStore.history.forEach((r: { id: string; timestamp: number; totalScore: number }) => {
-      items.push({ id: r.id, type: 'MBI', timestamp: r.timestamp, score: r.totalScore, label: `MBI ${r.totalScore}/100` })
-    })
+  const recentAssessments = useMemo(() => assessmentList.slice(0, 7), [assessmentList])
 
-    return items.sort((a, b) => b.timestamp - a.timestamp)
-  }, [bbsStore.history, mmtStore.history, facStore.history, mbiStore.history])
+  // 통계 데이터
+  const todayStr = new Date().toDateString()
+  const todayAssessments = assessmentList.filter(
+    (a) => new Date(a.timestamp).toDateString() === todayStr
+  ).length
+  const complianceRate = 78 // 간단 기본값
 
-  // 오늘 평가 수
-  const todayAssessmentCount = allAssessments.filter((a) => {
-    const d = new Date(a.timestamp).toISOString().split('T')[0]
-    return d === today
-  }).length
+  const commentColorMap: Record<string, { bg: string; border: string; icon: string }> = {
+    blue:    { bg: 'bg-blue-50 dark:bg-blue-500/10', border: 'border-blue-200 dark:border-blue-500/30', icon: 'text-blue-500' },
+    amber:   { bg: 'bg-amber-50 dark:bg-amber-500/10', border: 'border-amber-200 dark:border-amber-500/30', icon: 'text-amber-500' },
+    emerald: { bg: 'bg-emerald-50 dark:bg-emerald-500/10', border: 'border-emerald-200 dark:border-emerald-500/30', icon: 'text-emerald-500' },
+    violet:  { bg: 'bg-violet-50 dark:bg-violet-500/10', border: 'border-violet-200 dark:border-violet-500/30', icon: 'text-violet-500' },
+  }
 
-  // 오늘 운동 세션 수
-  const todayExerciseCount = exerciseRecords.filter((r) => r.date === today).length
-
-  // 환자 수 (고정값 - 실제 DB 연동 전 mock)
-  const totalPatients = 12
-
-  // 재활이행률 계산 (이번 주 운동 일수 / 7일)
-  const weekStart = new Date()
-  weekStart.setDate(weekStart.getDate() - weekStart.getDay())
-  const weeklyRecords = exerciseRecords.filter((r) => new Date(r.date) >= weekStart)
-  const weeklyDays = new Set(weeklyRecords.map((r) => r.date)).size
-  const complianceRate = Math.round((weeklyDays / 7) * 100)
-
-  const complianceData = [
-    { name: language === 'ko' ? '이행' : 'Done', value: complianceRate },
-    { name: language === 'ko' ? '미이행' : 'Remaining', value: 100 - complianceRate },
-  ]
-  const COMPLIANCE_COLORS = ['hsl(var(--primary))', 'hsl(var(--border))']
-
-  // 평가 점수 추이 (BBS 기준, 최근 8개)
-  const scoreTrendData = useMemo(() => {
-    return bbsStore.history
-      .slice(0, 8)
-      .reverse()
-      .map((r) => ({
-        date: new Date(r.timestamp).toLocaleDateString(language === 'ko' ? 'ko-KR' : 'en-US', { month: 'short', day: 'numeric' }),
-        BBS: r.totalScore,
-      }))
-  }, [bbsStore.history, language])
-
-  // MBI 점수 추이
-  const mbiTrendData = useMemo(() => {
-    return mbiStore.history
-      .slice(0, 8)
-      .reverse()
-      .map((r: { timestamp: number; totalScore: number }) => ({
-        date: new Date(r.timestamp).toLocaleDateString(language === 'ko' ? 'ko-KR' : 'en-US', { month: 'short', day: 'numeric' }),
-        MBI: r.totalScore,
-      }))
-  }, [mbiStore.history, language])
-
-  // 통합 추이 데이터
-  const trendData = useMemo(() => {
-    const dateMap = new Map<string, { date: string; BBS?: number; MBI?: number }>()
-
-    scoreTrendData.forEach((d) => {
-      const existing = dateMap.get(d.date) || { date: d.date }
-      existing.BBS = d.BBS
-      dateMap.set(d.date, existing)
-    })
-    mbiTrendData.forEach((d) => {
-      const existing = dateMap.get(d.date) || { date: d.date }
-      existing.MBI = d.MBI
-      dateMap.set(d.date, existing)
-    })
-
-    return Array.from(dateMap.values())
-  }, [scoreTrendData, mbiTrendData])
-
-  // 최근 평가 5개
-  const recentAssessments = allAssessments.slice(0, 5)
+  // 환자 미선택 시 안내
+  if (!selectedPatientId) {
+    return (
+      <MainLayout title={language === 'ko' ? '환자 대시보드' : 'Patient Dashboard'}>
+        <div className="mx-auto max-w-6xl">
+          <Card>
+            <CardContent className="flex flex-col items-center justify-center py-16">
+              <Users className="h-16 w-16 text-text-secondary/30 mb-4" />
+              <h2 className="text-lg font-semibold text-text-primary mb-2">
+                {language === 'ko' ? '환자를 선택해주세요' : 'Select a Patient'}
+              </h2>
+              <p className="text-sm text-text-secondary mb-6 text-center">
+                {language === 'ko'
+                  ? '환자 목록에서 환자를 선택하면 대시보드가 표시됩니다'
+                  : 'Select a patient from the list to view their dashboard'}
+              </p>
+              <Button onClick={() => router.push('/patients')}>
+                <Users className="mr-2 h-4 w-4" />
+                {language === 'ko' ? '환자 목록으로' : 'Go to Patients'}
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      </MainLayout>
+    )
+  }
 
   const statCards = [
     {
-      title: t('dashboard.todayAssessments'),
-      value: todayAssessmentCount,
+      title: language === 'ko' ? '오늘 평가' : 'Today',
+      value: `${todayAssessments}${language === 'ko' ? '건' : ''}`,
       icon: ClipboardCheck,
       color: 'text-blue-600',
       bgColor: 'bg-blue-50 dark:bg-blue-500/10',
     },
     {
-      title: t('dashboard.exerciseSessions'),
-      value: todayExerciseCount,
+      title: language === 'ko' ? '총 평가' : 'Total',
+      value: `${assessmentList.length}${language === 'ko' ? '건' : ''}`,
       icon: Dumbbell,
       color: 'text-emerald-600',
       bgColor: 'bg-emerald-50 dark:bg-emerald-500/10',
     },
     {
-      title: t('dashboard.totalPatients'),
-      value: totalPatients,
-      icon: Users,
+      title: language === 'ko' ? '재활이행률' : 'Compliance',
+      value: `${complianceRate}%`,
+      icon: Activity,
       color: 'text-violet-600',
       bgColor: 'bg-violet-50 dark:bg-violet-500/10',
     },
   ]
 
+  // 재활이행률 도넛 차트 데이터
+  const complianceData = [
+    { name: '이행', value: complianceRate },
+    { name: '미이행', value: 100 - complianceRate },
+  ]
+  const COMPLIANCE_COLORS = ['hsl(var(--primary))', 'hsl(var(--border))']
+
   return (
-    <MainLayout title={t('dashboard.title')}>
+    <MainLayout title={language === 'ko' ? '환자 대시보드' : 'Patient Dashboard'}>
       <div className="mx-auto max-w-6xl space-y-6">
+
+        {/* 환자 정보 카드 */}
+        {patient && (
+          <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}>
+            <Card className="border-primary/20 bg-gradient-to-r from-primary/5 to-transparent">
+              <CardContent className="flex items-center gap-4 p-5">
+                <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary/10">
+                  <User className="h-7 w-7 text-primary" />
+                </div>
+                <div className="flex-1">
+                  <div className="flex items-center gap-3">
+                    <h2 className="text-xl font-bold text-text-primary">{patient.name}</h2>
+                    <span className="rounded-full bg-surface px-2.5 py-0.5 text-xs font-medium text-text-secondary">
+                      {patient.age}세 / {patient.gender}
+                    </span>
+                  </div>
+                  <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-text-secondary">
+                    <span className="flex items-center gap-1">
+                      <Heart className="h-3.5 w-3.5 text-red-400" />
+                      {patient.diagnosis}
+                    </span>
+                    {patient.onset_date && (
+                      <span className="flex items-center gap-1">
+                        <Calendar className="h-3.5 w-3.5" />
+                        {language === 'ko' ? '온셋: ' : 'Onset: '}
+                        {new Date(patient.onset_date).toLocaleDateString('ko-KR')}
+                      </span>
+                    )}
+                    <span className="flex items-center gap-1">
+                      <Calendar className="h-3.5 w-3.5" />
+                      {language === 'ko' ? '입원일: ' : 'Admitted: '}
+                      {new Date(patient.admission_date).toLocaleDateString('ko-KR')}
+                    </span>
+                    <span className="text-xs text-text-secondary/70">
+                      ({language === 'ko' ? '재원 ' : 'Day '}
+                      {Math.floor((Date.now() - new Date(patient.admission_date).getTime()) / (1000 * 60 * 60 * 24))}
+                      {language === 'ko' ? '일' : ''})
+                    </span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+        )}
+
         {/* 상단: 숫자 카드 3개 */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           {statCards.map((card, index) => (
@@ -187,7 +209,9 @@ export default function DashboardPage() {
           >
             <Card className="h-full">
               <CardHeader className="pb-2">
-                <CardTitle className="text-base">{t('dashboard.rehabCompliance')}</CardTitle>
+                <CardTitle className="text-base">
+                  {language === 'ko' ? '재활이행률' : 'Compliance Rate'}
+                </CardTitle>
               </CardHeader>
               <CardContent className="flex flex-col items-center justify-center pb-6">
                 <div className="relative">
@@ -214,13 +238,10 @@ export default function DashboardPage() {
                   <div className="absolute inset-0 flex flex-col items-center justify-center">
                     <span className="text-4xl font-bold text-text-primary">{complianceRate}%</span>
                     <span className="text-xs text-text-secondary">
-                      {weeklyDays}/7 {language === 'ko' ? '일' : 'days'}
+                      {language === 'ko' ? '이번 주' : 'This week'}
                     </span>
                   </div>
                 </div>
-                <p className="mt-2 text-center text-sm text-text-secondary">
-                  {language === 'ko' ? '이번 주 운동 이행률' : 'Weekly exercise compliance'}
-                </p>
               </CardContent>
             </Card>
           </motion.div>
@@ -235,10 +256,12 @@ export default function DashboardPage() {
             <Card className="h-full">
               <CardHeader className="pb-2">
                 <div className="flex items-center justify-between">
-                  <CardTitle className="text-base">{t('dashboard.scoreTrend')}</CardTitle>
+                  <CardTitle className="text-base">
+                    {language === 'ko' ? '평가 점수 추이' : 'Score Trend'}
+                  </CardTitle>
                   <Link href="/data-records">
                     <span className="flex items-center gap-1 text-xs text-primary hover:underline">
-                      {language === 'ko' ? '상세보기' : 'Details'}
+                      {language === 'ko' ? '상세보기' : 'View Details'}
                       <ChevronRight className="h-3 w-3" />
                     </span>
                   </Link>
@@ -246,11 +269,24 @@ export default function DashboardPage() {
               </CardHeader>
               <CardContent className="pb-4">
                 {trendData.length > 0 ? (
-                  <ResponsiveContainer width="100%" height={220}>
-                    <LineChart data={trendData} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
+                  <ResponsiveContainer width="100%" height={240}>
+                    <LineChart data={trendData} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
                       <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
                       <XAxis dataKey="date" className="text-[10px]" tick={{ fill: 'hsl(var(--text-secondary))' }} />
-                      <YAxis className="text-[10px]" tick={{ fill: 'hsl(var(--text-secondary))' }} />
+                      <YAxis
+                        yAxisId="left"
+                        className="text-[10px]"
+                        tick={{ fill: 'hsl(var(--text-secondary))' }}
+                        domain={[0, 100]}
+                      />
+                      <YAxis
+                        yAxisId="right"
+                        orientation="right"
+                        className="text-[10px]"
+                        tick={{ fill: 'hsl(var(--text-secondary))' }}
+                        domain={[0, 5]}
+                        ticks={[0, 1, 2, 3, 4, 5]}
+                      />
                       <Tooltip
                         contentStyle={{
                           backgroundColor: 'hsl(var(--surface))',
@@ -258,19 +294,22 @@ export default function DashboardPage() {
                           borderRadius: '8px',
                           fontSize: '12px',
                         }}
+                        formatter={(value: number, name: string) => {
+                          if (name === 'FAC') return [`Lv.${value}`, name]
+                          if (name === 'BBS') return [`${value}/56`, name]
+                          if (name === 'MBI') return [`${value}/100`, name]
+                          return [value, name]
+                        }}
                       />
                       <Legend wrapperStyle={{ fontSize: '11px' }} />
-                      <Line type="monotone" dataKey="BBS" stroke="hsl(var(--primary))" strokeWidth={2} dot={{ r: 4 }} />
-                      <Line type="monotone" dataKey="MBI" stroke="#10B981" strokeWidth={2} dot={{ r: 4 }} />
+                      <Line yAxisId="left" type="monotone" dataKey="BBS" stroke="hsl(var(--primary))" strokeWidth={2} dot={{ r: 4 }} connectNulls />
+                      <Line yAxisId="left" type="monotone" dataKey="MBI" stroke="#10B981" strokeWidth={2} dot={{ r: 4 }} connectNulls />
+                      <Line yAxisId="right" type="monotone" dataKey="FAC" stroke="#F59E0B" strokeWidth={2} strokeDasharray="5 5" dot={{ r: 4 }} connectNulls />
                     </LineChart>
                   </ResponsiveContainer>
                 ) : (
-                  <div className="flex h-[220px] flex-col items-center justify-center text-text-secondary">
-                    <TrendingUp className="mb-2 h-10 w-10 opacity-30" />
-                    <p className="text-sm">{t('dashboard.noAssessments')}</p>
-                    <Link href="/gait-analysis" className="mt-2 text-xs text-primary hover:underline">
-                      {language === 'ko' ? '평가 시작하기' : 'Start Assessment'}
-                    </Link>
+                  <div className="flex items-center justify-center h-[240px] text-sm text-text-secondary">
+                    {language === 'ko' ? '아직 평가 데이터가 없습니다' : 'No assessment data yet'}
                   </div>
                 )}
               </CardContent>
@@ -278,26 +317,67 @@ export default function DashboardPage() {
           </motion.div>
         </div>
 
+        {/* 임상 코멘트 */}
+        {clinicalComments.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.35 }}
+          >
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <TrendingUp className="h-4 w-4 text-primary" />
+                  {language === 'ko' ? '재활 진행 요약' : 'Rehab Progress Summary'}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  {clinicalComments.map((comment) => {
+                    const colors = commentColorMap[comment.color] || commentColorMap.blue
+                    return (
+                      <div
+                        key={comment.type}
+                        className={cn('rounded-lg border p-3.5', colors.bg, colors.border)}
+                      >
+                        <div className="flex items-center gap-2">
+                          <ArrowUpRight className={cn('h-4 w-4', colors.icon)} />
+                          <span className="text-sm font-semibold text-text-primary">{comment.title}</span>
+                        </div>
+                        <p className="mt-1.5 text-xs leading-relaxed text-text-secondary">
+                          {comment.detail}
+                        </p>
+                      </div>
+                    )
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+        )}
+
         {/* 하단: 최근 평가 리스트 */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4 }}
-        >
-          <Card>
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-base">{t('dashboard.recentAssessments')}</CardTitle>
-                <Link href="/data-records">
-                  <span className="flex items-center gap-1 text-xs text-primary hover:underline">
-                    {language === 'ko' ? '전체보기' : 'View All'}
-                    <ChevronRight className="h-3 w-3" />
-                  </span>
-                </Link>
-              </div>
-            </CardHeader>
-            <CardContent>
-              {recentAssessments.length > 0 ? (
+        {recentAssessments.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.4 }}
+          >
+            <Card>
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-base">
+                    {language === 'ko' ? '최근 평가 기록' : 'Recent Assessments'}
+                  </CardTitle>
+                  <Link href="/data-records">
+                    <span className="flex items-center gap-1 text-xs text-primary hover:underline">
+                      {language === 'ko' ? '전체보기' : 'View All'}
+                      <ChevronRight className="h-3 w-3" />
+                    </span>
+                  </Link>
+                </div>
+              </CardHeader>
+              <CardContent>
                 <div className="overflow-hidden rounded-lg border border-border">
                   <table className="w-full">
                     <thead>
@@ -325,7 +405,7 @@ export default function DashboardPage() {
                               <div className="flex items-center gap-2">
                                 <Calendar className="h-3.5 w-3.5 text-text-secondary" />
                                 <span className="text-xs text-text-primary">
-                                  {date.toLocaleDateString(language === 'ko' ? 'ko-KR' : 'en-US')}
+                                  {date.toLocaleDateString('ko-KR')}
                                 </span>
                               </div>
                             </td>
@@ -345,7 +425,7 @@ export default function DashboardPage() {
                             </td>
                             <td className="px-4 py-2.5 text-right">
                               <span className="text-[11px] text-text-secondary">
-                                {date.toLocaleTimeString(language === 'ko' ? 'ko-KR' : 'en-US', { hour: '2-digit', minute: '2-digit' })}
+                                {date.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}
                               </span>
                             </td>
                           </tr>
@@ -354,18 +434,10 @@ export default function DashboardPage() {
                     </tbody>
                   </table>
                 </div>
-              ) : (
-                <div className="flex flex-col items-center justify-center py-10 text-text-secondary">
-                  <FileText className="mb-2 h-10 w-10 opacity-30" />
-                  <p className="text-sm">{t('dashboard.noAssessments')}</p>
-                  <Link href="/gait-analysis" className="mt-2 text-xs text-primary hover:underline">
-                    {language === 'ko' ? '첫 평가 시작하기' : 'Start First Assessment'}
-                  </Link>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </motion.div>
+              </CardContent>
+            </Card>
+          </motion.div>
+        )}
       </div>
     </MainLayout>
   )

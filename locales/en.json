@@ -21,6 +21,7 @@
   },
   "nav": {
     "home": "Home",
+    "patients": "My Patients",
     "postureAnalysis": "Posture Analysis",
     "exercise": "Exercise",
     "assessmentTools": "Assessment Tools",
@@ -29,6 +30,37 @@
     "patientGuide": "Patient Guide",
     "patientDashboard": "Patient Dashboard",
     "settings": "Settings"
+  },
+  "auth": {
+    "login": "Login",
+    "logout": "Logout",
+    "email": "Email",
+    "password": "Password",
+    "loginTitle": "Therapist Login",
+    "loginFailed": "Login failed",
+    "noAccount": "Contact your administrator for an account"
+  },
+  "patients": {
+    "title": "My Patients",
+    "addPatient": "Add Patient",
+    "deletePatient": "Delete Patient",
+    "searchPlaceholder": "Search name or diagnosis...",
+    "statusAll": "All",
+    "statusActive": "Active",
+    "statusDischarged": "Discharged",
+    "statusOutpatient": "Outpatient",
+    "noPatients": "No patients found",
+    "daysInHospital": "Days in Hospital",
+    "lastAssessed": "Last Assessed",
+    "deleteWarning": "All assessment records for this patient will be permanently deleted. This action cannot be undone.",
+    "newPatient": "Add New Patient",
+    "name": "Name",
+    "age": "Age",
+    "gender": "Gender",
+    "diagnosis": "Diagnosis",
+    "admissionDate": "Admission Date",
+    "notes": "Notes",
+    "register": "Register"
   },
   "avatar": {
     "title": "3D Avatar",

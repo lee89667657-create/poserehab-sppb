@@ -10,6 +10,9 @@ import { HAND_FUNCTION_ITEMS } from '@/types/assessments'
 import { cn } from '@/lib/utils'
 import { useTranslation } from '@/hooks/use-translation'
 import { useRouter } from 'next/navigation'
+import { usePatientContextStore } from '@/stores/patient-context-store'
+import { useAuth } from '@/hooks/use-auth'
+import { saveAssessmentToSupabase } from '@/lib/supabase-save'
 
 export function HandFunctionAssessment() {
   const router = useRouter()
@@ -22,6 +25,8 @@ export function HandFunctionAssessment() {
   const [saveSuccess, setSaveSuccess] = useState(false)
   const [guideEnabled, setGuideEnabled] = useState(false)
   const [focusedItem, setFocusedItem] = useState<string | null>(null)
+  const { selectedPatientId } = usePatientContextStore()
+  const { user } = useAuth()
 
   useEffect(() => {
     if (guideEnabled && focusedItem) {
@@ -38,10 +43,19 @@ export function HandFunctionAssessment() {
   const rightTotal = getRightTotalScore()
   const completedCount = Object.keys(currentScores).length
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const result = saveResult()
     if (result) {
       setSaveSuccess(true)
+      if (selectedPatientId && user?.id) {
+        await saveAssessmentToSupabase({
+          patientId: selectedPatientId,
+          therapistId: user.id,
+          assessmentType: 'HandFunction',
+          score: null,
+          details: { scores: result.scores, leftTotalScore: result.leftTotalScore, rightTotalScore: result.rightTotalScore },
+        })
+      }
       setTimeout(() => setSaveSuccess(false), 2000)
     }
   }

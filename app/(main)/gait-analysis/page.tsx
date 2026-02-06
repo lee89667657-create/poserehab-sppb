@@ -12,16 +12,21 @@ import {
   Hand,
   Stethoscope,
   Briefcase,
+  User,
+  Users,
 } from 'lucide-react'
 import { MainLayout } from '@/components/layout/main-layout'
 import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
 import { BBSAssessment } from '@/components/bbs'
 import { MMTAssessment, ROMAssessment, FACAssessment } from '@/components/assessments'
 import { MBIAssessment } from '@/components/assessments/mbi-assessment'
 import { HandFunctionAssessment } from '@/components/assessments/hand-function-assessment'
 import { useTranslation } from '@/hooks/use-translation'
+import { usePatientContextStore } from '@/stores/patient-context-store'
 import { cn } from '@/lib/utils'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 
 type TherapyCategory = 'physical' | 'occupational'
 type PhysicalAssessment = 'mmt' | 'rom' | 'bbs' | 'fac'
@@ -42,15 +47,60 @@ const OCCUPATIONAL_TABS = [
 
 export default function AssessmentToolsPage() {
   const { language } = useTranslation()
+  const router = useRouter()
+  const { selectedPatientId, selectedPatientName } = usePatientContextStore()
   const [category, setCategory] = useState<TherapyCategory>('physical')
   const [physicalAssessment, setPhysicalAssessment] = useState<PhysicalAssessment>('mmt')
   const [occupationalAssessment, setOccupationalAssessment] = useState<OccupationalAssessment>('mbi')
 
   const currentAssessment: AssessmentType = category === 'physical' ? physicalAssessment : occupationalAssessment
 
+  // 환자 미선택 시 안내
+  if (!selectedPatientId) {
+    return (
+      <MainLayout>
+        <div className="mx-auto max-w-6xl p-4 lg:p-6">
+          <Card>
+            <CardContent className="flex flex-col items-center justify-center py-16">
+              <Users className="h-16 w-16 text-text-secondary/30 mb-4" />
+              <h2 className="text-lg font-semibold text-text-primary mb-2">
+                {language === 'ko' ? '환자를 먼저 선택해주세요' : 'Please Select a Patient First'}
+              </h2>
+              <p className="text-sm text-text-secondary mb-6 text-center">
+                {language === 'ko'
+                  ? '환자 목록에서 환자를 선택한 후 평가를 진행할 수 있습니다'
+                  : 'Select a patient from the list before starting an assessment'}
+              </p>
+              <Button onClick={() => router.push('/patients')}>
+                <Users className="mr-2 h-4 w-4" />
+                {language === 'ko' ? '환자 목록으로' : 'Go to Patients'}
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      </MainLayout>
+    )
+  }
+
   return (
     <MainLayout>
       <div className="mx-auto max-w-6xl space-y-6 p-4 lg:p-6">
+        {/* 선택된 환자 정보 배너 */}
+        <div className="flex items-center gap-3 rounded-xl border border-primary/20 bg-gradient-to-r from-primary/5 to-transparent px-4 py-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
+            <User className="h-5 w-5 text-primary" />
+          </div>
+          <div className="flex-1">
+            <p className="text-sm font-semibold text-text-primary">{selectedPatientName}</p>
+            <p className="text-xs text-text-secondary">
+              {language === 'ko' ? '평가 결과가 이 환자에게 저장됩니다' : 'Assessment results will be saved for this patient'}
+            </p>
+          </div>
+          <Button variant="outline" size="sm" onClick={() => router.push(`/patients/${selectedPatientId}`)}>
+            {language === 'ko' ? '상세' : 'Detail'}
+          </Button>
+        </div>
+
         {/* 헤더 */}
         <div className="flex items-center justify-between">
           <div>

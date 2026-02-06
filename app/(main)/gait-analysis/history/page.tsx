@@ -529,8 +529,8 @@ function ROMHistoryCard({
           return (
             <div key={item.id} className="grid grid-cols-3 gap-1 bg-background rounded-lg py-1.5 px-2 text-xs items-center">
               <div className="text-text-secondary truncate text-[10px]">{item.name.slice(0, 15)}</div>
-              <div className="text-center font-medium text-blue-600">{score.lt ?? '-'}°</div>
-              <div className="text-center font-medium text-rose-600">{score.rt ?? '-'}°</div>
+              <div className="text-center font-medium text-blue-600">{Object.values(score.lt).filter(v => v !== null).join('/') || '-'}°</div>
+              <div className="text-center font-medium text-rose-600">{Object.values(score.rt).filter(v => v !== null).join('/') || '-'}°</div>
             </div>
           )
         })}

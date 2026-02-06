@@ -10,6 +10,9 @@ import { useROMAssessmentStore } from '@/stores/rom-assessment-store'
 import { ROM_ITEMS } from '@/types/assessments'
 import type { ROMSideScore } from '@/types/assessments'
 import { cn } from '@/lib/utils'
+import { usePatientContextStore } from '@/stores/patient-context-store'
+import { useAuth } from '@/hooks/use-auth'
+import { saveAssessmentToSupabase } from '@/lib/supabase-save'
 
 // 구조화된 값 → 화면 표시 문자열
 const valuesToDisplay = (side: ROMSideScore, valueKeys: string[]): string => {
@@ -43,6 +46,8 @@ export function ROMAssessment() {
   const { language } = useTranslation()
   const { currentScores, setScore, resetCurrentSession, saveResult } = useROMAssessmentStore()
   const [saveSuccess, setSaveSuccess] = useState(false)
+  const { selectedPatientId } = usePatientContextStore()
+  const { user } = useAuth()
 
   const completedCount = Object.values(currentScores).filter(
     (s) =>
@@ -55,13 +60,22 @@ export function ROMAssessment() {
     setSaveSuccess(false)
   }, [resetCurrentSession])
 
-  const handleSave = useCallback(() => {
+  const handleSave = useCallback(async () => {
     const result = saveResult()
     if (result) {
       setSaveSuccess(true)
+      if (selectedPatientId && user?.id) {
+        await saveAssessmentToSupabase({
+          patientId: selectedPatientId,
+          therapistId: user.id,
+          assessmentType: 'ROM',
+          score: null,
+          details: { scores: result.scores },
+        })
+      }
       setTimeout(() => setSaveSuccess(false), 2000)
     }
-  }, [saveResult])
+  }, [saveResult, selectedPatientId, user?.id])
 
   return (
     <div className="max-w-[900px] mx-auto space-y-4">

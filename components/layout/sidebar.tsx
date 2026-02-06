@@ -19,12 +19,16 @@ import {
   Palette,
   Gamepad2,
   Database,
+  Users,
+  LogOut,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useSettingsStore, type Theme, type ColorTheme } from '@/stores/settings-store'
 import { useTranslation } from '@/hooks/use-translation'
+import { useAuth } from '@/hooks/use-auth'
 
 const navItems = [
+  { href: '/patients', icon: Users, labelKey: 'nav.patients' },
   { href: '/dashboard', icon: Home, labelKey: 'nav.home' },
   { href: '/posture-analysis', icon: Scan, labelKey: 'nav.postureAnalysis' },
   { href: '/exercise/list', icon: Dumbbell, labelKey: 'nav.exercise' },
@@ -54,6 +58,7 @@ export function Sidebar() {
   const pathname = usePathname()
   const { theme, colorTheme, sidebarCollapsed, setTheme, setColorTheme, toggleSidebar } = useSettingsStore()
   const { t } = useTranslation()
+  const { signOut } = useAuth()
   const [showColorPicker, setShowColorPicker] = useState(false)
 
   // store 상태 사용
@@ -153,6 +158,28 @@ export function Sidebar() {
           </AnimatePresence>
         </a>
       </nav>
+
+      {/* Logout Button */}
+      <div className="px-3 pb-2">
+        <button
+          onClick={() => signOut()}
+          className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-text-secondary transition-colors hover:bg-error/10 hover:text-error"
+        >
+          <LogOut className="h-5 w-5 flex-shrink-0" />
+          <AnimatePresence mode="wait">
+            {!isCollapsed && (
+              <motion.span
+                initial={{ opacity: 0, width: 0 }}
+                animate={{ opacity: 1, width: 'auto' }}
+                exit={{ opacity: 0, width: 0 }}
+                className="truncate text-sm font-medium"
+              >
+                {t('auth.logout')}
+              </motion.span>
+            )}
+          </AnimatePresence>
+        </button>
+      </div>
 
       {/* Theme Section */}
       <div className="border-t border-border px-3 py-4">

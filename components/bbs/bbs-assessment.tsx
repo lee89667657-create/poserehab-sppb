@@ -10,6 +10,9 @@ import { useBBSStore } from '@/stores/bbs-store'
 import { usePatientGuideStore } from '@/stores/patient-guide-store'
 import { BBS_ITEMS, interpretBBSScore } from '@/types/bbs'
 import { cn } from '@/lib/utils'
+import { usePatientContextStore } from '@/stores/patient-context-store'
+import { useAuth } from '@/hooks/use-auth'
+import { saveAssessmentToSupabase } from '@/lib/supabase-save'
 
 interface BBSAssessmentProps {
   onSave?: (result: { scores: Record<number, number>; totalScore: number; riskLevel: 'high' | 'medium' | 'low' }) => void
@@ -22,6 +25,8 @@ export function BBSAssessment({ onSave }: BBSAssessmentProps) {
   const { setBBSGuide, clearGuide } = usePatientGuideStore()
   const [saveSuccess, setSaveSuccess] = useState(false)
   const [guideEnabled, setGuideEnabled] = useState(false)
+  const { selectedPatientId } = usePatientContextStore()
+  const { user } = useAuth()
 
   useEffect(() => {
     if (!guideEnabled) clearGuide()
@@ -45,15 +50,24 @@ export function BBSAssessment({ onSave }: BBSAssessmentProps) {
     setSaveSuccess(false)
   }, [resetCurrentSession])
 
-  const handleSave = useCallback(() => {
+  const handleSave = useCallback(async () => {
     if (completedCount < 14) return
     const result = saveResult()
     if (result) {
       setSaveSuccess(true)
       onSave?.({ scores: result.scores, totalScore: result.totalScore, riskLevel: result.riskLevel })
+      if (selectedPatientId && user?.id) {
+        await saveAssessmentToSupabase({
+          patientId: selectedPatientId,
+          therapistId: user.id,
+          assessmentType: 'BBS',
+          score: result.totalScore,
+          details: { scores: result.scores, riskLevel: result.riskLevel },
+        })
+      }
       setTimeout(() => setSaveSuccess(false), 2000)
     }
-  }, [completedCount, saveResult, onSave])
+  }, [completedCount, saveResult, onSave, selectedPatientId, user?.id])
 
   return (
     <div className="max-w-[900px] mx-auto space-y-4">

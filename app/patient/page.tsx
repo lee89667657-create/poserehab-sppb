@@ -384,7 +384,7 @@ function StatusTab({ language }: { language: string }) {
         {/* 상단: 환자 이름 + 날짜 */}
         <div className="flex items-center gap-2 mb-3 flex-shrink-0">
           <span className="text-sm text-text-secondary">
-            {profile.name || (language === 'ko' ? '게스트' : 'Guest')}{language === 'ko' ? '님' : ''} | {dateStr}
+            {profile?.name || (language === 'ko' ? '게스트' : 'Guest')}{language === 'ko' ? '님' : ''} | {dateStr}
           </span>
         </div>
         {/* 평가 카드 그리드 — 2열 3행, 한 화면에 */}

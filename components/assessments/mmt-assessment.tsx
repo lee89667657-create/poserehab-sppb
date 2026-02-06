@@ -9,6 +9,9 @@ import { useTranslation } from '@/hooks/use-translation'
 import { useMMTStore } from '@/stores/mmt-store'
 import { MMT_ITEMS, MMT_GRADES } from '@/types/assessments'
 import { cn } from '@/lib/utils'
+import { usePatientContextStore } from '@/stores/patient-context-store'
+import { useAuth } from '@/hooks/use-auth'
+import { saveAssessmentToSupabase } from '@/lib/supabase-save'
 
 const GRADE_VALUES = [0, 1, 2, 3, 4, 5]
 
@@ -17,6 +20,8 @@ export function MMTAssessment() {
   const { language } = useTranslation()
   const { currentScores, setScore, resetCurrentSession, saveResult } = useMMTStore()
   const [saveSuccess, setSaveSuccess] = useState(false)
+  const { selectedPatientId } = usePatientContextStore()
+  const { user } = useAuth()
 
   const completedCount = Object.values(currentScores).filter(
     (s) => s.lt !== null || s.rt !== null
@@ -27,13 +32,22 @@ export function MMTAssessment() {
     setSaveSuccess(false)
   }, [resetCurrentSession])
 
-  const handleSave = useCallback(() => {
+  const handleSave = useCallback(async () => {
     const result = saveResult()
     if (result) {
       setSaveSuccess(true)
+      if (selectedPatientId && user?.id) {
+        await saveAssessmentToSupabase({
+          patientId: selectedPatientId,
+          therapistId: user.id,
+          assessmentType: 'MMT',
+          score: null,
+          details: { scores: result.scores },
+        })
+      }
       setTimeout(() => setSaveSuccess(false), 2000)
     }
-  }, [saveResult])
+  }, [saveResult, selectedPatientId, user?.id])
 
   return (
     <div className="max-w-[900px] mx-auto space-y-4">

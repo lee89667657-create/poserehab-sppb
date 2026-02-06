@@ -1,20 +1,32 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { useUserStore } from '@/stores/user-store'
+import { useAuth } from '@/hooks/use-auth'
 
 export default function Home() {
   const router = useRouter()
-  const { isOnboardingComplete } = useUserStore()
+  const { session, isLoading } = useAuth()
+  const redirected = useRef(false)
 
   useEffect(() => {
-    if (isOnboardingComplete) {
-      router.push('/dashboard')
-    } else {
-      router.push('/onboarding')
+    if (redirected.current) return
+    if (!isLoading) {
+      redirected.current = true
+      router.replace(session ? '/patients' : '/login')
     }
-  }, [isOnboardingComplete, router])
+  }, [session, isLoading, router])
+
+  // 5초 타임아웃: auth 로딩이 안 풀리면 로그인으로 이동
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      if (!redirected.current) {
+        redirected.current = true
+        router.replace('/login')
+      }
+    }, 5000)
+    return () => clearTimeout(timeout)
+  }, [router])
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background">

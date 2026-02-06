@@ -15,6 +15,8 @@
     "@mediapipe/hands": "^0.4.1675469240",
     "@mediapipe/pose": "^0.5.1675469404",
     "@pixiv/three-vrm": "^3.4.5",
+    "@supabase/ssr": "^0.8.0",
+    "@supabase/supabase-js": "^2.95.2",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.0",
     "framer-motion": "^11.0.0",

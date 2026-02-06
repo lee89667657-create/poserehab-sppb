@@ -9,20 +9,34 @@ import { MBI_ITEMS } from '@/types/assessments'
 import { cn } from '@/lib/utils'
 import { useTranslation } from '@/hooks/use-translation'
 import { useRouter } from 'next/navigation'
+import { usePatientContextStore } from '@/stores/patient-context-store'
+import { useAuth } from '@/hooks/use-auth'
+import { saveAssessmentToSupabase } from '@/lib/supabase-save'
 
 export function MBIAssessment() {
   const router = useRouter()
   const { language } = useTranslation()
   const { currentScores, notes, setScore, setNotes, getTotalScore, saveResult, reset } = useMBIStore()
   const [saveSuccess, setSaveSuccess] = useState(false)
+  const { selectedPatientId } = usePatientContextStore()
+  const { user } = useAuth()
 
   const totalScore = getTotalScore()
   const completedCount = Object.keys(currentScores).length
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const result = saveResult()
     if (result) {
       setSaveSuccess(true)
+      if (selectedPatientId && user?.id) {
+        await saveAssessmentToSupabase({
+          patientId: selectedPatientId,
+          therapistId: user.id,
+          assessmentType: 'MBI',
+          score: result.totalScore,
+          details: { scores: result.scores },
+        })
+      }
       setTimeout(() => setSaveSuccess(false), 2000)
     }
   }

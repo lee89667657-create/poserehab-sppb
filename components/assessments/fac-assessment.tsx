@@ -9,25 +9,39 @@ import { useTranslation } from '@/hooks/use-translation'
 import { useFACStore } from '@/stores/fac-store'
 import { FAC_LEVELS } from '@/types/assessments'
 import { cn } from '@/lib/utils'
+import { usePatientContextStore } from '@/stores/patient-context-store'
+import { useAuth } from '@/hooks/use-auth'
+import { saveAssessmentToSupabase } from '@/lib/supabase-save'
 
 export function FACAssessment() {
   const router = useRouter()
   const { language } = useTranslation()
   const { currentLevel, currentNotes, setLevel, setNotes, resetCurrentSession, saveResult } = useFACStore()
   const [saveSuccess, setSaveSuccess] = useState(false)
+  const { selectedPatientId } = usePatientContextStore()
+  const { user } = useAuth()
 
   const handleReset = useCallback(() => {
     resetCurrentSession()
     setSaveSuccess(false)
   }, [resetCurrentSession])
 
-  const handleSave = useCallback(() => {
+  const handleSave = useCallback(async () => {
     const result = saveResult()
     if (result) {
       setSaveSuccess(true)
+      if (selectedPatientId && user?.id) {
+        await saveAssessmentToSupabase({
+          patientId: selectedPatientId,
+          therapistId: user.id,
+          assessmentType: 'FAC',
+          score: result.level,
+          details: { notes: result.notes },
+        })
+      }
       setTimeout(() => setSaveSuccess(false), 2000)
     }
-  }, [saveResult])
+  }, [saveResult, selectedPatientId, user?.id])
 
   return (
     <div className="max-w-[900px] mx-auto space-y-4">

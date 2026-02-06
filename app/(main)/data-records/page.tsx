@@ -104,7 +104,7 @@ export default function DataRecordsPage() {
       : ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
     // dateKey 내림차순 (최신순)
-    const sortedKeys = [...map.keys()].sort((a, b) => b.localeCompare(a))
+    const sortedKeys = Array.from(map.keys()).sort((a, b) => b.localeCompare(a))
     sortedKeys.forEach((dateKey) => {
       const items = map.get(dateKey)!
       // 같은 날 안에서는 시간 오름차순
