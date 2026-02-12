@@ -516,25 +516,34 @@ export async function generateComparisonPdfReport(data: ComparisonReportData): P
     addText(`${isKo ? '최근' : 'Latest'}: ${formatDate(curr.timestamp)}`, margin + 80, yPos, { fontSize: 9, color: COLORS.textSecondary })
     yPos += 7
 
-    const avgGrade = (scores: Record<string, { lt: number | null; rt: number | null }>) => {
-      const vals = Object.values(scores).flatMap(s => [s.lt, s.rt]).filter((v): v is number => v !== null)
-      return vals.length > 0 ? vals.reduce((a, b) => a + b, 0) / vals.length : 0
+    const gradeNames: Record<number, string> = { 0: 'Zero', 1: 'Trace', 2: 'Poor', 3: 'Fair', 4: 'Good', 5: 'Normal' }
+    const countGoodPlus = (scores: Record<string, { lt: number | null; rt: number | null }>) => {
+      return Object.values(scores).filter(s => (s.lt ?? 0) >= 4 && (s.rt ?? 0) >= 4).length
     }
 
-    const prevAvg = avgGrade(prev.scores)
-    const currAvg = avgGrade(curr.scores)
-    const diff = currAvg - prevAvg
-    const prevCount = Object.keys(prev.scores).length
+    const prevGood = countGoodPlus(prev.scores)
+    const currGood = countGoodPlus(curr.scores)
     const currCount = Object.keys(curr.scores).length
 
     addComparisonRow(
-      isKo ? '평균 등급' : 'Avg Grade',
-      prevAvg.toFixed(1),
-      currAvg.toFixed(1),
-      Math.round(diff * 10) / 10
+      isKo ? 'Good 이상' : 'Good+',
+      `${prevGood}/${Object.keys(prev.scores).length}`,
+      `${currGood}/${currCount}`,
+      currGood - prevGood
     )
-    addText(`${isKo ? '평가 근육군' : 'Muscle groups'}: ${prevCount} → ${currCount}`, margin + 5, yPos, { fontSize: 9, color: COLORS.textSecondary })
-    yPos += 10
+
+    // 부위별 등급 표시
+    Object.entries(curr.scores).forEach(([key, s]) => {
+      const prevS = prev.scores[key]
+      const name = key.replace(/_/g, ' ')
+      const currLt = s.lt !== null ? Math.round(s.lt) : null
+      const currRt = s.rt !== null ? Math.round(s.rt) : null
+      const prevLt = prevS?.lt !== null ? Math.round(prevS?.lt ?? 0) : null
+      const prevRt = prevS?.rt !== null ? Math.round(prevS?.rt ?? 0) : null
+      addText(`${name}: Lt ${gradeNames[prevLt ?? 0] ?? '-'}→${gradeNames[currLt ?? 0] ?? '-'}, Rt ${gradeNames[prevRt ?? 0] ?? '-'}→${gradeNames[currRt ?? 0] ?? '-'}`, margin + 5, yPos, { fontSize: 8, color: COLORS.textSecondary })
+      yPos += 5
+    })
+    yPos += 5
   } else if (mmt.history.length === 1) {
     addSection('MMT (Manual Muscle Testing)')
     addText(isKo ? '다음 평가 후 비교 가능합니다.' : 'Comparison available after next assessment.', margin + 5, yPos, { color: COLORS.textSecondary })

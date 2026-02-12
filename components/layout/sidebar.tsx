@@ -6,9 +6,7 @@ import { usePathname } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Home,
-  Scan,
   ClipboardList,
-  Dumbbell,
   Settings,
   Moon,
   Sun,
@@ -17,7 +15,6 @@ import {
   ChevronLeft,
   ChevronRight,
   Palette,
-  Gamepad2,
   Database,
   Users,
   LogOut,
@@ -30,12 +27,9 @@ import { useAuth } from '@/hooks/use-auth'
 const navItems = [
   { href: '/patients', icon: Users, labelKey: 'nav.patients' },
   { href: '/dashboard', icon: Home, labelKey: 'nav.home' },
-  { href: '/posture-analysis', icon: Scan, labelKey: 'nav.postureAnalysis' },
-  { href: '/exercise/list', icon: Dumbbell, labelKey: 'nav.exercise' },
+  { href: '/patient', icon: MonitorSmartphone, labelKey: 'nav.patientDashboard', external: true },
   { href: '/gait-analysis', icon: ClipboardList, labelKey: 'nav.assessmentTools' },
-  { href: '/exercise/games', icon: Gamepad2, labelKey: 'nav.games' },
   { href: '/data-records', icon: Database, labelKey: 'nav.dataRecords' },
-  { href: '/settings', icon: Settings, labelKey: 'nav.settings' },
 ]
 
 const themeOptions: { value: Theme; icon: React.ElementType; labelKey: string }[] = [
@@ -103,11 +97,34 @@ export function Sidebar() {
       {/* Navigation */}
       <nav className="flex-1 space-y-1 px-3 py-4">
         {navItems.map((item) => {
-          const isActive = item.href === '/posture-analysis'
-            ? pathname === '/posture-analysis' || pathname.startsWith('/posture-analysis/')
-            : item.href === '/exercise/list'
-            ? pathname === '/exercise/list' || pathname === '/exercise/workout'
-            : pathname === item.href || pathname.startsWith(item.href + '/')
+          const isActive = pathname === item.href || pathname.startsWith(item.href + '/')
+
+          if (item.external) {
+            return (
+              <a
+                key={item.href}
+                href={item.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-3 rounded-lg px-3 py-2 transition-colors text-text-secondary hover:bg-background hover:text-text-primary"
+              >
+                <item.icon className="h-5 w-5 flex-shrink-0" />
+                <AnimatePresence mode="wait">
+                  {!isCollapsed && (
+                    <motion.span
+                      initial={{ opacity: 0, width: 0 }}
+                      animate={{ opacity: 1, width: 'auto' }}
+                      exit={{ opacity: 0, width: 0 }}
+                      className="truncate text-sm font-medium"
+                    >
+                      {t(item.labelKey)}
+                    </motion.span>
+                  )}
+                </AnimatePresence>
+              </a>
+            )
+          }
+
           return (
             <Link
               key={item.href}
@@ -135,15 +152,20 @@ export function Sidebar() {
             </Link>
           )
         })}
+      </nav>
 
-        {/* 환자 대시보드 (새 탭으로 열림) */}
-        <a
-          href="/patient"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex items-center gap-3 rounded-lg px-3 py-2 transition-colors text-text-secondary hover:bg-background hover:text-text-primary"
+      {/* 하단 고정: 설정 + 로그아웃 */}
+      <div className="space-y-1 px-3 pb-2">
+        <Link
+          href="/settings"
+          className={cn(
+            'flex items-center gap-3 rounded-lg px-3 py-2 transition-colors',
+            pathname === '/settings'
+              ? 'bg-primary/10 text-primary'
+              : 'text-text-secondary hover:bg-background hover:text-text-primary'
+          )}
         >
-          <MonitorSmartphone className="h-5 w-5 flex-shrink-0" />
+          <Settings className="h-5 w-5 flex-shrink-0" />
           <AnimatePresence mode="wait">
             {!isCollapsed && (
               <motion.span
@@ -152,15 +174,11 @@ export function Sidebar() {
                 exit={{ opacity: 0, width: 0 }}
                 className="truncate text-sm font-medium"
               >
-                {t('nav.patientDashboard')}
+                {t('nav.settings')}
               </motion.span>
             )}
           </AnimatePresence>
-        </a>
-      </nav>
-
-      {/* Logout Button */}
-      <div className="px-3 pb-2">
+        </Link>
         <button
           onClick={() => signOut()}
           className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-text-secondary transition-colors hover:bg-error/10 hover:text-error"

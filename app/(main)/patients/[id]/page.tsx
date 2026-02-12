@@ -46,9 +46,9 @@ export default function PatientDetailPage() {
   const {
     isLoading,
     latestScores,
-    trendData,
     clinicalComments,
     assessmentList,
+    byType,
   } = usePatientAssessments(patientId)
 
   // 환자 정보 가져오기
@@ -70,6 +70,96 @@ export default function PatientDetailPage() {
 
   const recentAssessments = useMemo(() => assessmentList.slice(0, 7), [assessmentList])
 
+  // 더미 데이터 (BBS, Hand Function, FAC)
+  const scoreHighlightData = useMemo(() => [
+    { date: '01/06', BBS: 21, HF: 14, FAC: 1 },
+    { date: '01/20', BBS: 28, HF: 18, FAC: 2 },
+    { date: '02/03', BBS: 34, HF: 22, FAC: 2 },
+    { date: '02/17', BBS: 39, HF: 25, FAC: 3 },
+    { date: '03/03', BBS: 44, HF: 28, FAC: 4 },
+  ], [])
+
+  const mmtGradeLabel = (grade: number | null | undefined): string => {
+    if (grade == null) return '-'
+    return ['Zero', 'Trace', 'Poor', 'Fair', 'Good', 'Normal'][grade] || `${grade}`
+  }
+
+  const latestHF = useMemo(() => {
+    const items = byType['HandFunction']
+    if (!items?.length) return null
+    const d = items[0].details as Record<string, unknown> | null
+    return {
+      date: items[0].assessed_at,
+      leftTotal: (d?.leftTotalScore as number) ?? null,
+      rightTotal: (d?.rightTotalScore as number) ?? null,
+    }
+  }, [byType])
+
+  const latestMMT = useMemo(() => {
+    const items = byType['MMT']
+    if (!items?.length) return null
+    const d = items[0].details as Record<string, unknown> | null
+    const scores = d?.scores as Record<string, { lt: number | null; rt: number | null }> | undefined
+    const sLt = scores?.shoulder_flexor?.lt
+    const hLt = scores?.hip_flexor?.lt
+    return {
+      date: items[0].assessed_at,
+      summary: `상지 ${mmtGradeLabel(sLt)} / 하지 ${mmtGradeLabel(hLt)}`,
+    }
+  }, [byType])
+
+  const latestROM = useMemo(() => {
+    const items = byType['ROM']
+    if (!items?.length) return null
+    const d = items[0].details as Record<string, unknown> | null
+    const scores = d?.scores as Record<string, unknown> | undefined
+    const cnt = scores ? Object.keys(scores).length : 0
+    return { date: items[0].assessed_at, summary: `${cnt}개 관절` }
+  }, [byType])
+
+  const mmtChange = useMemo(() => {
+    const items = byType['MMT']
+    if (!items?.length) return null
+    const latest = items[0]
+    const oldest = items.length >= 2 ? items[items.length - 1] : null
+    return {
+      latestDate: latest.assessed_at,
+      oldestDate: oldest?.assessed_at ?? null,
+      latestScores: (latest.details as Record<string, unknown>)?.scores as Record<string, { lt: number | null; rt: number | null }> | undefined,
+      oldestScores: oldest ? (oldest.details as Record<string, unknown>)?.scores as Record<string, { lt: number | null; rt: number | null }> | undefined : null,
+      hasChange: items.length >= 2,
+    }
+  }, [byType])
+
+  const romChange = useMemo(() => {
+    const items = byType['ROM']
+    if (!items?.length) return null
+    const latest = items[0]
+    const oldest = items.length >= 2 ? items[items.length - 1] : null
+    return {
+      latestDate: latest.assessed_at,
+      oldestDate: oldest?.assessed_at ?? null,
+      latestScores: (latest.details as Record<string, unknown>)?.scores as Record<string, Record<string, Record<string, number | null>>> | undefined,
+      oldestScores: oldest ? (oldest.details as Record<string, unknown>)?.scores as Record<string, Record<string, Record<string, number | null>>> | undefined : null,
+      hasChange: items.length >= 2,
+    }
+  }, [byType])
+
+  const mmtMuscleGroups = [
+    { key: 'shoulder_flexor', label: '어깨 굴곡근' },
+    { key: 'elbow_flexor_extensor', label: '팔꿈치 굴신근' },
+    { key: 'hip_flexor', label: '고관절 굴곡근' },
+    { key: 'knee_extensor', label: '무릎 신전근' },
+    { key: 'ankle_dorsiflexor', label: '발목 배굴근' },
+  ]
+
+  const romKeyJoints = [
+    { key: 'shoulder_flex_ext', valueKey: 'flexion', label: '어깨 굴곡' },
+    { key: 'hip_flex_abd', valueKey: 'flexion', label: '고관절 굴곡' },
+    { key: 'knee_flexion', valueKey: 'flexion', label: '무릎 굴곡' },
+    { key: 'ankle_df_pf', valueKey: 'dorsiflexion', label: '발목 배측굴곡' },
+  ]
+
   const daysInHospital = patient
     ? Math.floor((Date.now() - new Date(patient.admission_date).getTime()) / (1000 * 60 * 60 * 24))
     : 0
@@ -77,7 +167,7 @@ export default function PatientDetailPage() {
   const tabs: { value: TabType; label: string; icon: React.ElementType }[] = [
     { value: 'assessments', label: language === 'ko' ? '평가 기록' : 'Assessments', icon: ClipboardCheck },
     { value: 'rehab', label: language === 'ko' ? '운동/재활' : 'Rehab', icon: Dumbbell },
-    { value: 'changes', label: language === 'ko' ? '나의 변화' : 'My Changes', icon: Sparkles },
+    { value: 'changes', label: language === 'ko' ? '재활 경과' : 'Rehab Progress', icon: Sparkles },
   ]
 
   const commentColorMap: Record<string, { bg: string; border: string; icon: string }> = {
@@ -188,92 +278,268 @@ export default function PatientDetailPage() {
         {/* 탭1: 평가 기록 */}
         {activeTab === 'assessments' && (
           <div className="space-y-6">
-            {/* 최신 점수 요약 카드 */}
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-              {[
-                { type: 'BBS', label: 'BBS', max: 56, color: 'text-blue-600', bg: 'bg-blue-50 dark:bg-blue-500/10' },
-                { type: 'FAC', label: 'FAC', max: 5, color: 'text-amber-600', bg: 'bg-amber-50 dark:bg-amber-500/10' },
-                { type: 'MBI', label: 'MBI', max: 100, color: 'text-emerald-600', bg: 'bg-emerald-50 dark:bg-emerald-500/10' },
-                { type: 'MMT', label: 'MMT', max: null, color: 'text-violet-600', bg: 'bg-violet-50 dark:bg-violet-500/10' },
-              ].map((item) => {
-                const data = latestScores[item.type]
-                return (
-                  <Card key={item.type}>
-                    <CardContent className="p-4">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className={cn('text-xs font-bold', item.color)}>{item.label}</span>
-                        {data && (
-                          <span className="text-[10px] text-text-secondary">
-                            {new Date(data.date).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' })}
-                          </span>
-                        )}
-                      </div>
-                      <div className="text-2xl font-bold text-text-primary">
-                        {data?.score !== null && data?.score !== undefined
-                          ? item.type === 'FAC'
-                            ? `Lv.${data.score}`
-                            : data.score
-                          : '-'}
-                        {data?.score !== null && data?.score !== undefined && item.max && (
-                          <span className="text-sm font-normal text-text-secondary">/{item.max}</span>
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
-                )
-              })}
-            </div>
-
-            {/* 추이 그래프 */}
-            {trendData.length > 0 && (
+            {/* 상단 요약 카드 5개 */}
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+              {/* BBS */}
               <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-base">
-                    {language === 'ko' ? '평가 점수 추이' : 'Assessment Score Trend'}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="pb-4">
-                  <ResponsiveContainer width="100%" height={260}>
-                    <LineChart data={trendData} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
-                      <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                      <XAxis dataKey="date" className="text-[10px]" tick={{ fill: 'hsl(var(--text-secondary))' }} />
-                      <YAxis
-                        yAxisId="left"
-                        className="text-[10px]"
-                        tick={{ fill: 'hsl(var(--text-secondary))' }}
-                        domain={[0, 100]}
-                      />
-                      <YAxis
-                        yAxisId="right"
-                        orientation="right"
-                        className="text-[10px]"
-                        tick={{ fill: 'hsl(var(--text-secondary))' }}
-                        domain={[0, 5]}
-                        ticks={[0, 1, 2, 3, 4, 5]}
-                      />
-                      <Tooltip
-                        contentStyle={{
-                          backgroundColor: 'hsl(var(--surface))',
-                          border: '1px solid hsl(var(--border))',
-                          borderRadius: '8px',
-                          fontSize: '12px',
-                        }}
-                        formatter={(value: number, name: string) => {
-                          if (name === 'FAC') return [`Lv.${value}`, name]
-                          if (name === 'BBS') return [`${value}/56`, name]
-                          if (name === 'MBI') return [`${value}/100`, name]
-                          return [value, name]
-                        }}
-                      />
-                      <Legend wrapperStyle={{ fontSize: '11px' }} />
-                      <Line yAxisId="left" type="monotone" dataKey="BBS" stroke="hsl(var(--primary))" strokeWidth={2} dot={{ r: 4 }} connectNulls />
-                      <Line yAxisId="left" type="monotone" dataKey="MBI" stroke="#10B981" strokeWidth={2} dot={{ r: 4 }} connectNulls />
-                      <Line yAxisId="right" type="monotone" dataKey="FAC" stroke="#F59E0B" strokeWidth={2} strokeDasharray="5 5" dot={{ r: 4 }} connectNulls />
-                    </LineChart>
-                  </ResponsiveContainer>
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-bold text-blue-600">BBS</span>
+                    {latestScores['BBS'] && (
+                      <span className="text-[10px] text-text-secondary">
+                        {new Date(latestScores['BBS'].date).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' })}
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-2xl font-bold text-text-primary">
+                    {latestScores['BBS']?.score != null ? latestScores['BBS'].score : '-'}
+                    {latestScores['BBS']?.score != null && <span className="text-sm font-normal text-text-secondary">/56</span>}
+                  </div>
                 </CardContent>
               </Card>
-            )}
+
+              {/* FAC */}
+              <Card>
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-bold text-amber-600">FAC</span>
+                    {latestScores['FAC'] && (
+                      <span className="text-[10px] text-text-secondary">
+                        {new Date(latestScores['FAC'].date).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' })}
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-2xl font-bold text-text-primary">
+                    {latestScores['FAC']?.score != null ? `Lv.${latestScores['FAC'].score}` : '-'}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Hand Function */}
+              <Card>
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-bold text-violet-600">{language === 'ko' ? '상지기능' : 'Hand Func.'}</span>
+                    {latestHF && (
+                      <span className="text-[10px] text-text-secondary">
+                        {new Date(latestHF.date).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' })}
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-lg font-bold text-text-primary">
+                    {latestHF ? (
+                      <>
+                        <span className="text-[10px] font-normal text-text-secondary">Lt </span>{latestHF.leftTotal ?? '-'}
+                        <span className="text-[10px] font-normal text-text-secondary"> Rt </span>{latestHF.rightTotal ?? '-'}
+                        <span className="text-xs font-normal text-text-secondary">/32</span>
+                      </>
+                    ) : '-'}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* MMT */}
+              <Card>
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-bold text-purple-600">MMT</span>
+                    {latestMMT && (
+                      <span className="text-[10px] text-text-secondary">
+                        {new Date(latestMMT.date).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' })}
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-sm font-bold text-text-primary">
+                    {latestMMT ? latestMMT.summary : '-'}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* ROM */}
+              <Card>
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-bold text-emerald-600">ROM</span>
+                    {latestROM && (
+                      <span className="text-[10px] text-text-secondary">
+                        {new Date(latestROM.date).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' })}
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-sm font-bold text-text-primary">
+                    {latestROM ? latestROM.summary : '-'}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* 점수 추이 그래프 (BBS + Hand Function) */}
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base">
+                  {language === 'ko' ? '점수 추이 (BBS · 상지기능)' : 'Score Trend (BBS · Hand Function)'}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="pb-4">
+                <ResponsiveContainer width="100%" height={260}>
+                  <LineChart data={scoreHighlightData} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                    <XAxis dataKey="date" className="text-[10px]" tick={{ fill: 'hsl(var(--text-secondary))' }} />
+                    <YAxis
+                      yAxisId="left"
+                      className="text-[10px]"
+                      tick={{ fill: 'hsl(var(--text-secondary))' }}
+                      domain={[0, 56]}
+                      label={{ value: 'BBS', position: 'insideTopLeft', style: { fontSize: 10, fill: '#2563EB' } }}
+                    />
+                    <YAxis
+                      yAxisId="right"
+                      orientation="right"
+                      className="text-[10px]"
+                      tick={{ fill: 'hsl(var(--text-secondary))' }}
+                      domain={[0, 32]}
+                      label={{ value: 'HF', position: 'insideTopRight', style: { fontSize: 10, fill: '#7C3AED' } }}
+                    />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: 'hsl(var(--surface))',
+                        border: '1px solid hsl(var(--border))',
+                        borderRadius: '8px',
+                        fontSize: '12px',
+                      }}
+                      formatter={(value: number, name: string) => {
+                        if (name === 'BBS') return [`${value}/56`, 'BBS']
+                        if (name === '상지기능') return [`${value}/32`, 'Hand Function']
+                        return [value, name]
+                      }}
+                    />
+                    <Legend wrapperStyle={{ fontSize: '11px' }} />
+                    <Line yAxisId="left" type="monotone" dataKey="BBS" stroke="#2563EB" strokeWidth={2} dot={{ r: 4, fill: '#2563EB' }} connectNulls />
+                    <Line yAxisId="right" type="monotone" dataKey="HF" name="상지기능" stroke="#7C3AED" strokeWidth={2} dot={{ r: 4, fill: '#7C3AED' }} connectNulls />
+                  </LineChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+
+            {/* 등급 추이 그래프 (FAC) */}
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base">
+                  {language === 'ko' ? '보행능력 추이 (FAC)' : 'Ambulation Trend (FAC)'}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="pb-4">
+                <ResponsiveContainer width="100%" height={200}>
+                  <LineChart data={scoreHighlightData} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                    <XAxis dataKey="date" className="text-[10px]" tick={{ fill: 'hsl(var(--text-secondary))' }} />
+                    <YAxis className="text-[10px]" tick={{ fill: 'hsl(var(--text-secondary))' }} domain={[0, 5]} ticks={[0, 1, 2, 3, 4, 5]} />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: 'hsl(var(--surface))',
+                        border: '1px solid hsl(var(--border))',
+                        borderRadius: '8px',
+                        fontSize: '12px',
+                      }}
+                      formatter={(value: number) => [`Lv.${value}`, 'FAC']}
+                    />
+                    <Line type="monotone" dataKey="FAC" stroke="#D97706" strokeWidth={2.5} dot={{ r: 5, fill: '#D97706' }} activeDot={{ r: 7 }} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+
+            {/* MMT 변화 카드 */}
+            <Card>
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-base">
+                    {language === 'ko' ? 'MMT 변화' : 'MMT Changes'}
+                  </CardTitle>
+                  {mmtChange && (
+                    <span className="text-[10px] text-text-secondary">
+                      {mmtChange.oldestDate
+                        ? `${new Date(mmtChange.oldestDate).toLocaleDateString('ko-KR')} → ${new Date(mmtChange.latestDate).toLocaleDateString('ko-KR')}`
+                        : new Date(mmtChange.latestDate).toLocaleDateString('ko-KR')}
+                    </span>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent>
+                {mmtChange?.latestScores ? (
+                  <div className="space-y-2">
+                    {mmtMuscleGroups.map(({ key, label }) => {
+                      const latest = mmtChange.latestScores?.[key]
+                      const oldest = mmtChange.oldestScores?.[key]
+                      if (!latest || latest.lt == null) return null
+                      return (
+                        <div key={key} className="flex items-center justify-between rounded-lg bg-background px-3 py-2">
+                          <span className="text-xs text-text-secondary">{label}</span>
+                          <span className="text-xs font-medium text-text-primary">
+                            {mmtChange.hasChange && oldest?.lt != null ? (
+                              <>{mmtGradeLabel(oldest.lt)} → <span className="text-primary font-bold">{mmtGradeLabel(latest.lt)}</span></>
+                            ) : (
+                              <span className="font-bold">{mmtGradeLabel(latest.lt)}</span>
+                            )}
+                          </span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                ) : (
+                  <p className="text-xs text-text-secondary text-center py-4">
+                    {language === 'ko' ? '평가 데이터 없음' : 'No assessment data'}
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* ROM 변화 카드 */}
+            <Card>
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-base">
+                    {language === 'ko' ? 'ROM 변화 (주요 관절)' : 'ROM Changes (Key Joints)'}
+                  </CardTitle>
+                  {romChange && (
+                    <span className="text-[10px] text-text-secondary">
+                      {romChange.oldestDate
+                        ? `${new Date(romChange.oldestDate).toLocaleDateString('ko-KR')} → ${new Date(romChange.latestDate).toLocaleDateString('ko-KR')}`
+                        : new Date(romChange.latestDate).toLocaleDateString('ko-KR')}
+                    </span>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent>
+                {romChange?.latestScores ? (
+                  <div className="space-y-2">
+                    {romKeyJoints.map(({ key, valueKey, label }) => {
+                      const latestJoint = romChange.latestScores?.[key]
+                      const oldestJoint = romChange.oldestScores?.[key]
+                      const latestVal = latestJoint?.lt?.[valueKey]
+                      const oldestVal = oldestJoint?.lt?.[valueKey]
+                      if (latestVal == null) return null
+                      return (
+                        <div key={`${key}-${valueKey}`} className="flex items-center justify-between rounded-lg bg-background px-3 py-2">
+                          <span className="text-xs text-text-secondary">{label}</span>
+                          <span className="text-xs font-medium text-text-primary">
+                            {romChange.hasChange && oldestVal != null ? (
+                              <>{oldestVal}° → <span className="text-primary font-bold">{latestVal}°</span></>
+                            ) : (
+                              <span className="font-bold">{latestVal}°</span>
+                            )}
+                          </span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                ) : (
+                  <p className="text-xs text-text-secondary text-center py-4">
+                    {language === 'ko' ? '평가 데이터 없음' : 'No assessment data'}
+                  </p>
+                )}
+              </CardContent>
+            </Card>
 
             {/* 새 평가 버튼 */}
             <Button onClick={handleGoToAssessment} className="w-full">
@@ -418,7 +684,7 @@ export default function PatientDetailPage() {
                   </CardContent>
                 </Card>
 
-                {/* 점수 변화 하이라이트 */}
+                {/* 점수 변화 하이라이트 - 선 그래프 */}
                 <Card>
                   <CardHeader className="pb-3">
                     <CardTitle className="flex items-center gap-2 text-base">
@@ -427,18 +693,40 @@ export default function PatientDetailPage() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="space-y-3">
-                      {Object.entries(latestScores).map(([type, data]) => {
-                        if (!data.score) return null
-                        return (
-                          <div key={type} className="flex items-center justify-between rounded-lg bg-background p-3">
-                            <span className="text-sm font-medium text-text-primary">{type}</span>
-                            <span className="text-lg font-bold text-primary">
-                              {type === 'FAC' ? `Lv.${data.score}` : data.score}
-                            </span>
-                          </div>
-                        )
-                      })}
+                    <div className="space-y-6">
+                      {/* BBS 선 그래프 */}
+                      <div>
+                        <p className="text-xs font-semibold text-blue-600 mb-2">BBS (Berg Balance Scale)</p>
+                        <ResponsiveContainer width="100%" height={200}>
+                          <LineChart data={scoreHighlightData} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
+                            <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                            <XAxis dataKey="date" className="text-[10px]" tick={{ fill: 'hsl(var(--text-secondary))' }} />
+                            <YAxis className="text-[10px]" tick={{ fill: 'hsl(var(--text-secondary))' }} domain={[0, 56]} />
+                            <Tooltip
+                              contentStyle={{ backgroundColor: 'hsl(var(--surface))', border: '1px solid hsl(var(--border))', borderRadius: '8px', fontSize: '12px' }}
+                              formatter={(value: number) => [`${value}/56`, 'BBS']}
+                            />
+                            <Line type="monotone" dataKey="BBS" stroke="#2563EB" strokeWidth={2.5} dot={{ r: 5, fill: '#2563EB' }} activeDot={{ r: 7 }} />
+                          </LineChart>
+                        </ResponsiveContainer>
+                      </div>
+
+                      {/* FAC 선 그래프 */}
+                      <div>
+                        <p className="text-xs font-semibold text-amber-600 mb-2">FAC (Functional Ambulation Classification)</p>
+                        <ResponsiveContainer width="100%" height={200}>
+                          <LineChart data={scoreHighlightData} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
+                            <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                            <XAxis dataKey="date" className="text-[10px]" tick={{ fill: 'hsl(var(--text-secondary))' }} />
+                            <YAxis className="text-[10px]" tick={{ fill: 'hsl(var(--text-secondary))' }} domain={[0, 5]} ticks={[0, 1, 2, 3, 4, 5]} />
+                            <Tooltip
+                              contentStyle={{ backgroundColor: 'hsl(var(--surface))', border: '1px solid hsl(var(--border))', borderRadius: '8px', fontSize: '12px' }}
+                              formatter={(value: number) => [`Lv.${value}`, 'FAC']}
+                            />
+                            <Line type="monotone" dataKey="FAC" stroke="#D97706" strokeWidth={2.5} dot={{ r: 5, fill: '#D97706' }} activeDot={{ r: 7 }} />
+                          </LineChart>
+                        </ResponsiveContainer>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>

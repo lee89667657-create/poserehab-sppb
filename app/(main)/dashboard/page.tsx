@@ -9,16 +9,18 @@ import {
   Dumbbell,
   TrendingUp,
   ChevronRight,
+  ChevronLeft,
   Calendar,
   Activity,
   User,
   Heart,
   ArrowUpRight,
   Users,
+  Loader2,
 } from 'lucide-react'
 import {
   PieChart, Pie, Cell, ResponsiveContainer,
-  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
+  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, LabelList,
 } from 'recharts'
 import { MainLayout } from '@/components/layout/main-layout'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -34,14 +36,31 @@ import type { Patient } from '@/types/database'
 export default function DashboardPage() {
   const router = useRouter()
   const { language } = useTranslation()
-  const { selectedPatientId, selectedPatientName } = usePatientContextStore()
+  const { selectedPatientId, selectedPatientName, setSelectedPatient, clearSelectedPatient } = usePatientContextStore()
 
   const [patient, setPatient] = useState<Patient | null>(null)
+  const [patients, setPatients] = useState<Patient[]>([])
+  const [isLoadingPatients, setIsLoadingPatients] = useState(false)
   const { trendData, clinicalComments, assessmentList, isLoading } = usePatientAssessments(selectedPatientId || undefined)
 
-  // 환자 정보 가져오기
+
+  // 환자 목록 가져오기
   useEffect(() => {
-    if (!selectedPatientId) return
+    if (selectedPatientId) return
+    setIsLoadingPatients(true)
+    supabase
+      .from('patients')
+      .select('*')
+      .order('name')
+      .then(({ data }) => {
+        if (data) setPatients(data as Patient[])
+        setIsLoadingPatients(false)
+      })
+  }, [selectedPatientId])
+
+  // 선택된 환자 정보 가져오기
+  useEffect(() => {
+    if (!selectedPatientId) { setPatient(null); return }
     supabase
       .from('patients')
       .select('*')
@@ -52,7 +71,10 @@ export default function DashboardPage() {
       })
   }, [selectedPatientId])
 
-  const recentAssessments = useMemo(() => assessmentList.slice(0, 7), [assessmentList])
+  const recentAssessments = useMemo(
+    () => assessmentList.slice(0, 7),
+    [assessmentList]
+  )
 
   // 통계 데이터
   const todayStr = new Date().toDateString()
@@ -68,28 +90,64 @@ export default function DashboardPage() {
     violet:  { bg: 'bg-violet-50 dark:bg-violet-500/10', border: 'border-violet-200 dark:border-violet-500/30', icon: 'text-violet-500' },
   }
 
-  // 환자 미선택 시 안내
+  // 환자 미선택 → 환자 선택 화면
   if (!selectedPatientId) {
     return (
-      <MainLayout title={language === 'ko' ? '환자 대시보드' : 'Patient Dashboard'}>
-        <div className="mx-auto max-w-6xl">
-          <Card>
-            <CardContent className="flex flex-col items-center justify-center py-16">
-              <Users className="h-16 w-16 text-text-secondary/30 mb-4" />
-              <h2 className="text-lg font-semibold text-text-primary mb-2">
-                {language === 'ko' ? '환자를 선택해주세요' : 'Select a Patient'}
+      <MainLayout title={language === 'ko' ? '치료사 대시보드' : 'Therapist Dashboard'}>
+        <div className="mx-auto max-w-5xl">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
+              <Users className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold text-text-primary">
+                {language === 'ko' ? '환자를 선택하세요' : 'Select a Patient'}
               </h2>
-              <p className="text-sm text-text-secondary mb-6 text-center">
-                {language === 'ko'
-                  ? '환자 목록에서 환자를 선택하면 대시보드가 표시됩니다'
-                  : 'Select a patient from the list to view their dashboard'}
+              <p className="text-xs text-text-secondary">
+                {language === 'ko' ? '환자를 선택하면 대시보드가 표시됩니다' : 'Select a patient to view their dashboard'}
               </p>
-              <Button onClick={() => router.push('/patients')}>
-                <Users className="mr-2 h-4 w-4" />
-                {language === 'ko' ? '환자 목록으로' : 'Go to Patients'}
-              </Button>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
+
+          {isLoadingPatients ? (
+            <div className="text-center py-16">
+              <Loader2 className="h-8 w-8 text-text-secondary animate-spin mx-auto mb-3" />
+              <p className="text-sm text-text-secondary">
+                {language === 'ko' ? '환자 목록을 불러오는 중...' : 'Loading patients...'}
+              </p>
+            </div>
+          ) : patients.length === 0 ? (
+            <Card>
+              <CardContent className="flex flex-col items-center justify-center py-16">
+                <Users className="h-12 w-12 text-text-secondary/30 mb-3" />
+                <p className="text-sm text-text-secondary">
+                  {language === 'ko' ? '등록된 환자가 없습니다' : 'No patients registered'}
+                </p>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {patients.map((p) => (
+                <button
+                  key={p.id}
+                  onClick={() => setSelectedPatient(p.id, p.name)}
+                  className="text-left rounded-xl border border-border bg-surface p-4 hover:border-primary/50 hover:bg-primary/5 transition-all hover:shadow-md"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 flex-shrink-0">
+                      <User className="h-5 w-5 text-primary" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-bold text-text-primary truncate">{p.name}</p>
+                      <p className="text-xs text-text-secondary truncate flex items-center gap-1">
+                        <span>{p.age}{language === 'ko' ? '세' : 'y'} · {p.diagnosis}</span>
+                      </p>
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       </MainLayout>
     )
@@ -129,6 +187,15 @@ export default function DashboardPage() {
   return (
     <MainLayout title={language === 'ko' ? '환자 대시보드' : 'Patient Dashboard'}>
       <div className="mx-auto max-w-6xl space-y-6">
+
+        {/* ← 환자 목록 버튼 */}
+        <button
+          onClick={() => clearSelectedPatient()}
+          className="flex items-center gap-1.5 text-sm text-text-secondary hover:text-primary transition-colors"
+        >
+          <ChevronLeft className="h-4 w-4" />
+          {language === 'ko' ? '환자 목록' : 'Patient List'}
+        </button>
 
         {/* 환자 정보 카드 */}
         {patient && (
@@ -269,23 +336,33 @@ export default function DashboardPage() {
               </CardHeader>
               <CardContent className="pb-4">
                 {trendData.length > 0 ? (
-                  <ResponsiveContainer width="100%" height={240}>
-                    <LineChart data={trendData} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
+                  <ResponsiveContainer width="100%" height={260}>
+                    <LineChart data={trendData} margin={{ top: 20, right: 20, left: 0, bottom: 5 }}>
                       <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                      <XAxis dataKey="date" className="text-[10px]" tick={{ fill: 'hsl(var(--text-secondary))' }} />
+                      <XAxis
+                        dataKey="date"
+                        tick={{ fill: 'hsl(var(--text-secondary))', fontSize: 12 }}
+                        tickLine={{ stroke: 'hsl(var(--border))' }}
+                        axisLine={{ stroke: 'hsl(var(--border))' }}
+                      />
                       <YAxis
                         yAxisId="left"
-                        className="text-[10px]"
-                        tick={{ fill: 'hsl(var(--text-secondary))' }}
-                        domain={[0, 100]}
+                        tick={{ fill: '#6366F1', fontSize: 11, fontWeight: 600 }}
+                        tickLine={false}
+                        axisLine={false}
+                        domain={[0, 56]}
+                        ticks={[0, 14, 28, 42, 56]}
+                        label={{ value: language === 'ko' ? 'BBS (점)' : 'BBS (pts)', angle: -90, position: 'insideLeft', offset: 10, style: { fill: '#6366F1', fontSize: 11, fontWeight: 600 } }}
                       />
                       <YAxis
                         yAxisId="right"
                         orientation="right"
-                        className="text-[10px]"
-                        tick={{ fill: 'hsl(var(--text-secondary))' }}
+                        tick={{ fill: '#F59E0B', fontSize: 11, fontWeight: 600 }}
+                        tickLine={false}
+                        axisLine={false}
                         domain={[0, 5]}
                         ticks={[0, 1, 2, 3, 4, 5]}
+                        label={{ value: language === 'ko' ? 'FAC (Lv)' : 'FAC (Lv)', angle: 90, position: 'insideRight', offset: 10, style: { fill: '#F59E0B', fontSize: 11, fontWeight: 600 } }}
                       />
                       <Tooltip
                         contentStyle={{
@@ -295,20 +372,29 @@ export default function DashboardPage() {
                           fontSize: '12px',
                         }}
                         formatter={(value: number, name: string) => {
-                          if (name === 'FAC') return [`Lv.${value}`, name]
-                          if (name === 'BBS') return [`${value}/56`, name]
-                          if (name === 'MBI') return [`${value}/100`, name]
+                          if (name === 'BBS') return [`${value}/56${language === 'ko' ? '점' : 'pts'}`, `BBS ${language === 'ko' ? '균형' : 'Balance'}`]
+                          if (name === 'FAC') return [`Lv.${value}`, `FAC ${language === 'ko' ? '보행' : 'Walking'}`]
                           return [value, name]
                         }}
                       />
-                      <Legend wrapperStyle={{ fontSize: '11px' }} />
-                      <Line yAxisId="left" type="monotone" dataKey="BBS" stroke="hsl(var(--primary))" strokeWidth={2} dot={{ r: 4 }} connectNulls />
-                      <Line yAxisId="left" type="monotone" dataKey="MBI" stroke="#10B981" strokeWidth={2} dot={{ r: 4 }} connectNulls />
-                      <Line yAxisId="right" type="monotone" dataKey="FAC" stroke="#F59E0B" strokeWidth={2} strokeDasharray="5 5" dot={{ r: 4 }} connectNulls />
+                      <Legend
+                        wrapperStyle={{ fontSize: '12px', fontWeight: 600 }}
+                        formatter={(value: string) => {
+                          if (value === 'BBS') return `BBS ${language === 'ko' ? '균형' : 'Balance'}`
+                          if (value === 'FAC') return `FAC ${language === 'ko' ? '보행' : 'Walking'}`
+                          return value
+                        }}
+                      />
+                      <Line yAxisId="left" type="monotone" dataKey="BBS" stroke="#6366F1" strokeWidth={2.5} dot={{ r: 5, fill: '#6366F1', strokeWidth: 2, stroke: '#fff' }} connectNulls>
+                        <LabelList dataKey="BBS" position="top" style={{ fill: '#6366F1', fontSize: 11, fontWeight: 700 }} offset={8} />
+                      </Line>
+                      <Line yAxisId="right" type="monotone" dataKey="FAC" stroke="#F59E0B" strokeWidth={2.5} dot={{ r: 5, fill: '#F59E0B', strokeWidth: 2, stroke: '#fff' }} connectNulls>
+                        <LabelList dataKey="FAC" position="bottom" style={{ fill: '#F59E0B', fontSize: 11, fontWeight: 700 }} offset={8} formatter={(v: number) => `Lv.${v}`} />
+                      </Line>
                     </LineChart>
                   </ResponsiveContainer>
                 ) : (
-                  <div className="flex items-center justify-center h-[240px] text-sm text-text-secondary">
+                  <div className="flex items-center justify-center h-[260px] text-sm text-text-secondary">
                     {language === 'ko' ? '아직 평가 데이터가 없습니다' : 'No assessment data yet'}
                   </div>
                 )}

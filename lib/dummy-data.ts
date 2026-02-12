@@ -123,7 +123,7 @@ export const DUMMY_MBI_HISTORY: MBIResult[] = [
 // ─── MMT 평가 기록 (2회) ───────────────────────────────────
 // 좌측 편마비 → lt(좌)에 장애, rt(우)는 정상(5)
 const mmtScores1: Record<string, MMTScore> = {
-  // 2026-01-15: 좌측 상지 2/5, 좌측 하지 3/5
+  // 2026-01-15: 좌측 상지 Poor, 좌측 하지 Fair
   shoulder_flexor:         { lt: 2, rt: 5 },
   elbow_flexor_extensor:   { lt: 2, rt: 5 },
   finger_flexor_extensor:  { lt: 2, rt: 5 },
@@ -133,7 +133,7 @@ const mmtScores1: Record<string, MMTScore> = {
 }
 
 const mmtScores2: Record<string, MMTScore> = {
-  // 2026-02-04: 좌측 상지 3/5, 좌측 하지 3+/5 (3+는 일부 4로 표현)
+  // 2026-02-04: 좌측 상지 Fair, 좌측 하지 Fair→Good
   shoulder_flexor:         { lt: 3, rt: 5 },
   elbow_flexor_extensor:   { lt: 3, rt: 5 },
   finger_flexor_extensor:  { lt: 3, rt: 5 },
@@ -177,9 +177,10 @@ export function getDummyAssessments(): DummyAssessmentItem[] {
     items.push({ id: r.id, type: 'MBI', timestamp: r.timestamp, score: r.totalScore, label: `${r.totalScore}/100점` })
   })
   DUMMY_MMT_HISTORY.forEach((r) => {
-    const upperLt = r.scores.shoulder_flexor?.lt ?? '-'
-    const lowerLt = r.scores.hip_flexor?.lt ?? '-'
-    items.push({ id: r.id, type: 'MMT', timestamp: r.timestamp, label: `상지 ${upperLt}/5, 하지 ${lowerLt}/5` })
+    const gradeNames: Record<number, string> = { 0: 'Zero', 1: 'Trace', 2: 'Poor', 3: 'Fair', 4: 'Good', 5: 'Normal' }
+    const upperLt = r.scores.shoulder_flexor?.lt != null ? gradeNames[Math.round(r.scores.shoulder_flexor.lt)] ?? `${r.scores.shoulder_flexor.lt}` : '-'
+    const lowerLt = r.scores.hip_flexor?.lt != null ? gradeNames[Math.round(r.scores.hip_flexor.lt)] ?? `${r.scores.hip_flexor.lt}` : '-'
+    items.push({ id: r.id, type: 'MMT', timestamp: r.timestamp, label: `상지 ${upperLt}, 하지 ${lowerLt}` })
   })
 
   return items.sort((a, b) => b.timestamp - a.timestamp)

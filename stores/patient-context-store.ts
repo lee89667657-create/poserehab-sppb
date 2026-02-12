@@ -18,7 +18,7 @@ export const usePatientContextStore = create<PatientContextState>()(
     }),
     {
       name: 'patient-context',
-      storage: createJSONStorage(() => sessionStorage),
+      storage: createJSONStorage(() => localStorage),
     }
   )
 )

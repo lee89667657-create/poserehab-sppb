@@ -3,15 +3,9 @@
 import { useState, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { usePatientGuideStore } from '@/stores/patient-guide-store'
-import { useUserStore } from '@/stores/user-store'
-import { useBBSStore } from '@/stores/bbs-store'
-import { useRomStore } from '@/stores/rom-store'
-import { useHandFunctionStore } from '@/stores/hand-function-store'
-import { useFACStore } from '@/stores/fac-store'
-import { useMBIStore } from '@/stores/mbi-store'
-import { useMMTStore } from '@/stores/mmt-store'
+import { usePatientContextStore } from '@/stores/patient-context-store'
+import { usePatientAssessments } from '@/hooks/use-patient-assessments'
 import { useTranslation } from '@/hooks/use-translation'
-import { useCamera } from '@/hooks/use-camera'
 import {
   Play,
   Pause,
@@ -30,8 +24,6 @@ import {
   Target,
   Grip,
   CircleDot,
-  Camera,
-  CameraOff,
   Activity,
   BookOpen,
   TrendingUp,
@@ -296,6 +288,94 @@ function PercentBar({ percent, color }: { percent: number; color: string }) {
   )
 }
 
+// ─── ROM 정상 범위 + 환자용 이름 (대표동작: flexion) ───
+const ROM_NORMALS: Record<string, { label: string; labelEn: string; normal: number }> = {
+  'shoulder.flexion':   { label: '어깨 팔 올리기', labelEn: 'Shoulder raise', normal: 180 },
+  'shoulder.extension': { label: '어깨 팔 뒤로', labelEn: 'Shoulder back', normal: 60 },
+  'shoulder.abduction': { label: '어깨 팔 벌리기', labelEn: 'Shoulder spread', normal: 180 },
+  'knee.flexion':       { label: '무릎 구부리기', labelEn: 'Knee bend', normal: 135 },
+  'knee.extension':     { label: '무릎 펴기', labelEn: 'Knee extend', normal: 0 },
+  'hip.flexion':        { label: '다리 올리기', labelEn: 'Hip raise', normal: 120 },
+  'hip.extension':      { label: '다리 뒤로', labelEn: 'Hip back', normal: 30 },
+  'hip.abduction':      { label: '다리 벌리기', labelEn: 'Hip spread', normal: 45 },
+}
+
+// 관절별 대표동작(flexion)만 추출, 약한 쪽(lt/rt 중 낮은 값) 반환
+type RomSummaryItem = { joint: string; label: string; labelEn: string; value: number; side: 'lt' | 'rt'; normalVal: number; percent: number; otherSideValue: number }
+function extractRomSummary(scores: Record<string, Record<string, Record<string, number>>>): RomSummaryItem[] {
+  const joints = ['shoulder', 'knee', 'hip'] as const
+  const result: RomSummaryItem[] = []
+  for (const joint of joints) {
+    const jointData = scores[joint]
+    if (!jointData) continue
+    const motion = 'flexion'
+    const key = `${joint}.${motion}`
+    const info = ROM_NORMALS[key]
+    if (!info) continue
+    const ltVal = jointData.lt?.[motion] ?? null
+    const rtVal = jointData.rt?.[motion] ?? null
+    if (ltVal == null && rtVal == null) continue
+    // 약한 쪽 자동 감지 (낮은 값)
+    let value: number, side: 'lt' | 'rt', otherSideValue: number
+    if (ltVal != null && rtVal != null) {
+      if (ltVal <= rtVal) { value = ltVal; side = 'lt'; otherSideValue = rtVal }
+      else { value = rtVal; side = 'rt'; otherSideValue = ltVal }
+    } else if (ltVal != null) { value = ltVal; side = 'lt'; otherSideValue = ltVal }
+    else { value = rtVal!; side = 'rt'; otherSideValue = rtVal! }
+    const percent = Math.min(100, Math.round((value / info.normal) * 100))
+    result.push({ joint, label: info.label, labelEn: info.labelEn, value, side, normalVal: info.normal, percent, otherSideValue })
+  }
+  return result
+}
+
+// ─── ROM 관절 행 (StatusTab / ProgressTab 공용) ───
+function RomJointRow({ label, value, prevValue, normalVal, language }: {
+  label: string; value: number; prevValue?: number | null; normalVal: number; language: string
+}) {
+  const percent = Math.min(100, Math.round((value / normalVal) * 100))
+  const barColor = percent >= 80 ? 'bg-secondary' : percent >= 50 ? 'bg-warning' : 'bg-orange-500'
+  const hasChange = prevValue != null && prevValue !== value
+  const change = prevValue != null ? value - prevValue : null
+
+  return (
+    <div className="flex items-center gap-2">
+      <span className="text-xs text-text-secondary w-[5.5rem] truncate">{label}</span>
+      <div className="flex-1 flex flex-col gap-0.5">
+        <div className="flex items-center justify-between">
+          <span className="text-xs font-semibold text-text-primary">
+            {prevValue != null ? (
+              <>
+                <span className="text-text-secondary">{prevValue}°</span>
+                <span className="text-text-secondary mx-0.5">{'\u2192'}</span>
+                <span>{value}°</span>
+                {change != null && change !== 0 && (
+                  <span className={cn('ml-1', change > 0 ? 'text-green-500' : 'text-orange-500')}>
+                    {change > 0 ? '\u2191' : '\u2193'}
+                  </span>
+                )}
+              </>
+            ) : (
+              <>
+                <span>{value}°</span>
+                <span className="text-text-secondary ml-1">/ {normalVal}°</span>
+              </>
+            )}
+          </span>
+          <span className="text-[10px] text-text-secondary/60">{percent}%</span>
+        </div>
+        <div className="w-full h-1.5 bg-background rounded-full overflow-hidden">
+          <motion.div
+            initial={{ width: 0 }}
+            animate={{ width: `${percent}%` }}
+            transition={{ duration: 0.8, ease: 'easeOut' }}
+            className={cn('h-full rounded-full', barColor)}
+          />
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── 미평가 메시지 (컴팩트) ───
 function NotYetMessage({ language, icon: Icon }: { language: string; icon: React.ElementType }) {
   return (
@@ -311,30 +391,28 @@ function NotYetMessage({ language, icon: Icon }: { language: string; icon: React
   )
 }
 
-// ─── 내 현황 탭 ───
+// ─── 내 현황 탭 (Supabase 연동) ───
 function StatusTab({ language }: { language: string }) {
-  const { profile } = useUserStore()
-  const { history: bbsHistory } = useBBSStore()
-  const { sessions: romSessions } = useRomStore()
-  const { history: handHistory } = useHandFunctionStore()
-  const { history: facHistory } = useFACStore()
-  const { history: mbiHistory } = useMBIStore()
-  const { history: mmtHistory } = useMMTStore()
+  const { selectedPatientId, selectedPatientName } = usePatientContextStore()
+  const { byType, isLoading } = usePatientAssessments(selectedPatientId || undefined)
 
-  const latestBBS = bbsHistory[0]
-  const latestFAC = facHistory[0]
-  const latestMBI = mbiHistory[0]
-  const latestMMT = mmtHistory[0]
-  const latestHand = handHistory[0]
-  const latestROM = romSessions[0]
+  // 각 평가 타입의 최신 데이터 추출
+  const latestBBS = byType['BBS']?.[0] ?? null
+  const latestFAC = byType['FAC']?.[0] ?? null
+  const latestMBI = byType['MBI']?.[0] ?? null
+  const latestMMT = byType['MMT']?.[0] ?? null
+  const latestHand = byType['HandFunction']?.[0] ?? null
+  const latestROM = byType['ROM']?.[0] ?? null
 
   // BBS: 56점 만점
-  const bbsPercent = latestBBS ? Math.round((latestBBS.totalScore / 56) * 100) : 0
+  const bbsScore = latestBBS?.score ? Number(latestBBS.score) : 0
+  const bbsPercent = latestBBS ? Math.round((bbsScore / 56) * 100) : 0
   const bbsMessage = language === 'ko'
     ? bbsPercent >= 80 ? '균형 능력이 좋아요!' : bbsPercent >= 40 ? '조금 더 연습하면 좋아요!' : '꾸준히 연습하면 나아질 거예요!'
     : bbsPercent >= 80 ? 'Great balance!' : bbsPercent >= 40 ? 'A little more practice will help!' : 'Keep practicing, you will improve!'
 
   // FAC: 0~5 레벨
+  const facLevel = latestFAC?.score ? Number(latestFAC.score) : 0
   const facMessages: Record<number, { ko: string; en: string }> = {
     0: { ko: '아직 걷기가 어려워요', en: 'Walking is still difficult' },
     1: { ko: '많은 도움이 있으면 걸을 수 있어요', en: 'Can walk with a lot of help' },
@@ -345,38 +423,69 @@ function StatusTab({ language }: { language: string }) {
   }
 
   // MBI: 100점 만점
-  const mbiPercent = latestMBI ? Math.round((latestMBI.totalScore / 100) * 100) : 0
+  const mbiScore = latestMBI?.score ? Number(latestMBI.score) : 0
+  const mbiPercent = latestMBI ? Math.round((mbiScore / 100) * 100) : 0
   const mbiMessage = language === 'ko'
-    ? mbiPercent >= 80 ? '대부분 혼자 하실 수 있어요!' : mbiPercent >= 50 ? '절반 이상 혼자 하실 수 있어요!' : '조금씩 독립성이 늘고 있어요!'
-    : mbiPercent >= 80 ? 'You can do most things on your own!' : mbiPercent >= 50 ? 'You can do more than half by yourself!' : 'Your independence is growing!'
+    ? mbiScore >= 91 ? '일상생활이 편해요!' : mbiScore >= 50 ? '조금씩 나아지고 있어요!' : '꾸준히 노력하면 좋아질 거예요!'
+    : mbiScore >= 91 ? 'Daily life is easy!' : mbiScore >= 50 ? 'Getting better!' : 'Keep trying, it will improve!'
 
-  // MMT: 각 근육 0~5, 평균 계산
-  const mmtAvg = (() => {
+  // MMT: details.scores에서 평균 계산
+  const mmtPercent = (() => {
     if (!latestMMT) return 0
-    const scores = Object.values(latestMMT.scores)
-    if (scores.length === 0) return 0
+    const details = latestMMT.details as Record<string, unknown> | null
+    const scores = details?.scores as Record<string, { lt?: number | null; rt?: number | null }> | undefined
+    if (!scores) return latestMMT.score ? Math.round((Number(latestMMT.score) / 5) * 100) : 0
     let total = 0
     let count = 0
-    scores.forEach((s) => {
-      if (s.lt !== null) { total += s.lt; count++ }
-      if (s.rt !== null) { total += s.rt; count++ }
+    Object.values(scores).forEach((s) => {
+      if (s.lt != null) { total += s.lt; count++ }
+      if (s.rt != null) { total += s.rt; count++ }
     })
-    return count > 0 ? total / count : 0
+    return count > 0 ? Math.round((total / count / 5) * 100) : 0
   })()
-  const mmtPercent = Math.round((mmtAvg / 5) * 100)
   const mmtMessage = language === 'ko'
     ? mmtPercent >= 80 ? '근력이 아주 좋아요!' : mmtPercent >= 50 ? '근력이 좋아지고 있어요!' : '꾸준히 운동하면 강해질 거예요!'
     : mmtPercent >= 80 ? 'Your strength is excellent!' : mmtPercent >= 50 ? 'Your strength is improving!' : 'Keep exercising, you will get stronger!'
 
-  // Hand: 32점 만점 (각 손)
-  const handLPercent = latestHand ? Math.round((latestHand.leftTotalScore / 32) * 100) : 0
-  const handRPercent = latestHand ? Math.round((latestHand.rightTotalScore / 32) * 100) : 0
+  // Hand: details에서 좌/우 총점 추출 (각 32점 만점)
+  const handDetails = latestHand?.details as Record<string, unknown> | null
+  const handLScore = handDetails?.leftTotalScore as number | undefined
+  const handRScore = handDetails?.rightTotalScore as number | undefined
+  const handLPercent = handLScore != null ? Math.round((handLScore / 32) * 100) : 0
+  const handRPercent = handRScore != null ? Math.round((handRScore / 32) * 100) : 0
 
-  // ROM: 측정 관절 수
-  const romCount = latestROM ? latestROM.measurements.length : 0
+  // ROM: 관절별 flexion 요약 추출
+  const romDetails = latestROM?.details as Record<string, unknown> | null
+  const romScores = romDetails?.scores as Record<string, Record<string, Record<string, number>>> | undefined
+  const romSummary = romScores ? extractRomSummary(romScores) : []
+  // 이전 평가 ROM (변화량 비교용)
+  const prevROM = byType['ROM']?.[1] ?? null
+  const prevRomDetails = prevROM?.details as Record<string, unknown> | null
+  const prevRomScores = prevRomDetails?.scores as Record<string, Record<string, Record<string, number>>> | undefined
+  const prevRomSummary = prevRomScores ? extractRomSummary(prevRomScores) : []
+
+  // 날짜 포맷
+  const formatAssessedDate = (dateStr: string) => {
+    const d = new Date(dateStr)
+    return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`
+  }
 
   const today = new Date()
   const dateStr = `${today.getFullYear()}.${String(today.getMonth() + 1).padStart(2, '0')}.${String(today.getDate()).padStart(2, '0')}`
+
+  if (!selectedPatientId) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center text-center p-8">
+        <User className="w-16 h-16 text-text-secondary/30 mb-4" />
+        <p className="text-2xl font-bold text-text-primary mb-2">
+          {language === 'ko' ? '환자가 선택되지 않았습니다' : 'No patient selected'}
+        </p>
+        <p className="text-lg text-text-secondary">
+          {language === 'ko' ? '치료사 화면에서 환자를 먼저 선택해 주세요' : 'Please select a patient from the therapist screen'}
+        </p>
+      </div>
+    )
+  }
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden p-4 lg:p-6">
@@ -384,8 +493,13 @@ function StatusTab({ language }: { language: string }) {
         {/* 상단: 환자 이름 + 날짜 */}
         <div className="flex items-center gap-2 mb-3 flex-shrink-0">
           <span className="text-sm text-text-secondary">
-            {profile?.name || (language === 'ko' ? '게스트' : 'Guest')}{language === 'ko' ? '님' : ''} | {dateStr}
+            {selectedPatientName || (language === 'ko' ? '게스트' : 'Guest')}{language === 'ko' ? '님' : ''} | {dateStr}
           </span>
+          {isLoading && (
+            <span className="text-xs text-text-secondary/50 animate-pulse">
+              {language === 'ko' ? '불러오는 중...' : 'Loading...'}
+            </span>
+          )}
         </div>
         {/* 평가 카드 그리드 — 2열 3행, 한 화면에 */}
         <div className="flex-1 grid grid-cols-2 grid-rows-3 gap-3">
@@ -397,6 +511,7 @@ function StatusTab({ language }: { language: string }) {
                 <p className="text-4xl lg:text-5xl font-extrabold text-primary">{bbsPercent}%</p>
                 <PercentBar percent={bbsPercent} color={bbsPercent >= 80 ? 'bg-secondary' : bbsPercent >= 40 ? 'bg-warning' : 'bg-error'} />
                 <p className="text-sm text-text-secondary mt-1">{bbsMessage}</p>
+                <p className="text-xs text-text-secondary/60 mt-0.5">{bbsScore}/56 · {formatAssessedDate(latestBBS.assessed_at)}</p>
               </>
             ) : (
               <NotYetMessage language={language} icon={Shield} />
@@ -408,26 +523,28 @@ function StatusTab({ language }: { language: string }) {
             {latestFAC ? (
               <>
                 <p className="text-4xl lg:text-5xl font-extrabold text-primary">
-                  Lv.{latestFAC.level}
+                  Lv.{facLevel}
                   <span className="text-lg text-text-secondary font-medium ml-1">/5</span>
                 </p>
-                <PercentBar percent={(latestFAC.level / 5) * 100} color={latestFAC.level >= 4 ? 'bg-secondary' : latestFAC.level >= 2 ? 'bg-warning' : 'bg-error'} />
+                <PercentBar percent={(facLevel / 5) * 100} color={facLevel >= 4 ? 'bg-secondary' : facLevel >= 2 ? 'bg-warning' : 'bg-error'} />
                 <p className="text-sm text-text-secondary mt-1">
-                  {facMessages[latestFAC.level]?.[language === 'ko' ? 'ko' : 'en'] || ''}
+                  {facMessages[facLevel]?.[language === 'ko' ? 'ko' : 'en'] || ''}
                 </p>
+                <p className="text-xs text-text-secondary/60 mt-0.5">{formatAssessedDate(latestFAC.assessed_at)}</p>
               </>
             ) : (
               <NotYetMessage language={language} icon={PersonStanding} />
             )}
           </AssessmentCard>
 
-          {/* MBI 일상생활 독립도 */}
-          <AssessmentCard icon={HeartHandshake} title={language === 'ko' ? '일상생활' : 'Daily'} toolName="MBI" hasData={!!latestMBI} delay={0.15}>
+          {/* MBI 일상생활 */}
+          <AssessmentCard icon={HeartHandshake} title={language === 'ko' ? '일상생활' : 'Daily Life'} toolName="MBI" hasData={!!latestMBI} delay={0.15} accentColor="bg-emerald-500">
             {latestMBI ? (
               <>
-                <p className="text-3xl lg:text-4xl font-bold text-primary">{mbiPercent}%</p>
-                <PercentBar percent={mbiPercent} color={mbiPercent >= 80 ? 'bg-secondary' : mbiPercent >= 50 ? 'bg-warning' : 'bg-error'} />
+                <p className="text-4xl lg:text-5xl font-extrabold text-primary">{mbiPercent}%</p>
+                <PercentBar percent={mbiPercent} color={mbiPercent >= 91 ? 'bg-secondary' : mbiPercent >= 50 ? 'bg-warning' : 'bg-error'} />
                 <p className="text-sm text-text-secondary mt-1">{mbiMessage}</p>
+                <p className="text-xs text-text-secondary/60 mt-0.5">{mbiScore}/100 · {formatAssessedDate(latestMBI.assessed_at)}</p>
               </>
             ) : (
               <NotYetMessage language={language} icon={HeartHandshake} />
@@ -441,6 +558,7 @@ function StatusTab({ language }: { language: string }) {
                 <p className="text-3xl lg:text-4xl font-bold text-primary">{mmtPercent}%</p>
                 <PercentBar percent={mmtPercent} color={mmtPercent >= 80 ? 'bg-secondary' : mmtPercent >= 50 ? 'bg-warning' : 'bg-error'} />
                 <p className="text-sm text-text-secondary mt-1">{mmtMessage}</p>
+                <p className="text-xs text-text-secondary/60 mt-0.5">{formatAssessedDate(latestMMT.assessed_at)}</p>
               </>
             ) : (
               <NotYetMessage language={language} icon={Dumbbell} />
@@ -475,6 +593,7 @@ function StatusTab({ language }: { language: string }) {
                     </div>
                   </div>
                 </div>
+                <p className="text-xs text-text-secondary/60 mt-0.5">{formatAssessedDate(latestHand.assessed_at)}</p>
               </>
             ) : (
               <NotYetMessage language={language} icon={Hand} />
@@ -485,15 +604,43 @@ function StatusTab({ language }: { language: string }) {
           <AssessmentCard icon={Move} title={language === 'ko' ? '관절 움직임' : 'Joint'} toolName="ROM" hasData={!!latestROM} delay={0.3}>
             {latestROM ? (
               <>
-                <p className="text-3xl lg:text-4xl font-bold text-primary">
-                  {romCount}
-                  <span className="text-lg text-text-secondary font-medium ml-1">
-                    {language === 'ko' ? '개 관절' : 'joints'}
-                  </span>
-                </p>
-                <p className="text-sm text-text-secondary mt-1">
-                  {language === 'ko' ? '정상 범위에서 움직이고 있어요' : 'Moving within normal range'}
-                </p>
+                {romSummary.length > 0 ? (
+                  <div className="space-y-1.5 mt-0.5">
+                    {romSummary.map((item) => {
+                      const prev = prevRomSummary.find(p => p.joint === item.joint)
+                      return (
+                        <RomJointRow
+                          key={item.joint}
+                          label={language === 'ko' ? item.label : item.labelEn}
+                          value={item.value}
+                          prevValue={prev ? prev.value : null}
+                          normalVal={item.normalVal}
+                          language={language}
+                        />
+                      )
+                    })}
+                  </div>
+                ) : (
+                  <p className="text-sm text-text-secondary mt-1">
+                    {language === 'ko' ? '측정 데이터가 없어요' : 'No measurement data'}
+                  </p>
+                )}
+                {/* 좌우 차이 안내 */}
+                {(() => {
+                  const imbalanced = romSummary.find(s => Math.abs(s.value - s.otherSideValue) >= 20)
+                  if (!imbalanced) return null
+                  const weakSide = imbalanced.side === 'lt'
+                    ? (language === 'ko' ? '왼쪽' : 'Left')
+                    : (language === 'ko' ? '오른쪽' : 'Right')
+                  return (
+                    <p className="text-xs text-warning mt-1">
+                      {language === 'ko'
+                        ? `${weakSide}이 조금 더 연습이 필요해요`
+                        : `${weakSide} side needs more practice`}
+                    </p>
+                  )
+                })()}
+                <p className="text-xs text-text-secondary/60 mt-0.5">{formatAssessedDate(latestROM.assessed_at)}</p>
               </>
             ) : (
               <NotYetMessage language={language} icon={Move} />
@@ -551,15 +698,6 @@ function GuideTab({ language }: { language: string }) {
   const [completedIds, setCompletedIds] = useState<Set<number>>(new Set())
   // 검사 완료 상태
   const [isCompleted, setIsCompleted] = useState(false)
-  // 카메라 미러링
-  const [isMirrored, setIsMirrored] = useState(true)
-  // 카메라 화면 ON/OFF
-  const [isCameraVisible, setIsCameraVisible] = useState(true)
-
-  const { videoRef, isStreaming, error: cameraError, startCamera, stopCamera } = useCamera({
-    width: 640,
-    height: 480,
-  })
 
   // 진행 목록 계산
   const activeItems = isSelectMode
@@ -579,15 +717,6 @@ function GuideTab({ language }: { language: string }) {
     return () => clearInterval(interval)
   }, [isTimerRunning, tickTimer])
 
-  // 카메라: 항목 진행 시에만 시작 (완료 화면에서는 끔)
-  useEffect(() => {
-    if (currentItem && !isAutoScored && !isCompleted) {
-      startCamera()
-    } else {
-      stopCamera()
-    }
-    return () => { stopCamera() }
-  }, [currentItem, isAutoScored, isCompleted, startCamera, stopCamera])
 
   // 타이머 포맷팅
   const formatTime = useCallback((seconds: number) => {
@@ -721,62 +850,6 @@ function GuideTab({ language }: { language: string }) {
   const completedCount = completedIds.size
   const totalCount = activeItems.length
 
-  // 카메라 패널
-  const cameraPanel = (
-    <div className="relative h-full w-full bg-black overflow-hidden">
-      <video
-        ref={videoRef}
-        autoPlay
-        playsInline
-        muted
-        className="h-full w-full object-cover transition-transform"
-        style={{ transform: isMirrored ? 'scaleX(-1)' : 'none' }}
-      />
-      {!isStreaming && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-900/80">
-          {cameraError ? (
-            <>
-              <CameraOff className="w-16 h-16 text-gray-400 mb-4" />
-              <p className="text-gray-400 text-xl text-center px-4">{cameraError}</p>
-              <button
-                onClick={startCamera}
-                className="mt-4 px-6 py-3 rounded-lg bg-primary text-white text-lg hover:bg-primary/80 transition-colors"
-              >
-                {language === 'ko' ? '다시 시도' : 'Retry'}
-              </button>
-            </>
-          ) : (
-            <>
-              <Camera className="w-16 h-16 text-gray-400 mb-4 animate-pulse" />
-              <p className="text-gray-400 text-xl">
-                {language === 'ko' ? '카메라 연결 중...' : 'Connecting camera...'}
-              </p>
-            </>
-          )}
-        </div>
-      )}
-      {isStreaming && (
-        <>
-          <div className="absolute top-3 left-3 flex items-center gap-2 bg-black/50 rounded-full px-3 py-1">
-            <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-            <span className="text-white text-sm">LIVE</span>
-          </div>
-          <button
-            onClick={() => setIsMirrored(prev => !prev)}
-            className={cn(
-              'absolute top-3 right-3 flex items-center gap-1.5 rounded-full px-3 py-1 text-sm font-medium transition-colors',
-              isMirrored
-                ? 'bg-purple-600/80 text-white'
-                : 'bg-black/50 text-gray-300'
-            )}
-          >
-            <span>🔄</span>
-            {language === 'ko' ? '미러링' : 'Mirror'}
-          </button>
-        </>
-      )}
-    </div>
-  )
 
   return (
     <div className="flex-1 flex flex-col min-h-0">
@@ -822,19 +895,6 @@ function GuideTab({ language }: { language: string }) {
           {language === 'ko' ? '선택 모드' : 'Select Mode'}
         </button>
 
-        {/* 카메라 화면 토글 */}
-        <button
-          onClick={() => setIsCameraVisible(prev => !prev)}
-          className={cn(
-            'flex items-center gap-2 px-4 py-3 rounded-xl text-lg font-medium transition-colors whitespace-nowrap',
-            isCameraVisible
-              ? 'bg-purple-600 text-white'
-              : 'bg-background border border-border text-text-secondary hover:text-text-primary'
-          )}
-        >
-          <span>{isCameraVisible ? '📷' : '📷'}</span>
-          {language === 'ko' ? '화면' : 'Camera'}
-        </button>
       </div>
 
       {/* ─── 선택 모드: 체크박스 목록 (진행 전에만 표시) ─── */}
@@ -1009,34 +1069,23 @@ function GuideTab({ language }: { language: string }) {
           </button>
         </div>
       ) : (
-        /* 가이드 모드: 카메라 + 안내 */
-        <div className="flex-1 flex flex-col lg:flex-row min-h-0">
-          {/* 왼쪽: 카메라 (OFF일 때 CSS로만 숨김, 스트림 유지) */}
-          <div
-            className={cn(
-              'h-[35vh] lg:h-full lg:w-1/2 flex-shrink-0',
-              !isCameraVisible && 'hidden'
-            )}
-          >
-            {cameraPanel}
-          </div>
-
-          {/* 오른쪽: 가이드 안내 (카메라 OFF면 전체 너비) */}
+        /* 가이드 모드: 안내 영상 + 설명 (한 화면에 모두 표시) */
+        <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
           <div className="flex-1 flex flex-col min-h-0">
-            <div className="flex-1 flex flex-col justify-center p-5 lg:p-8 overflow-y-auto gap-4">
-              {/* 1) 항목 번호 + 이모지 + 제목 */}
-              <h1 className="text-xl font-bold text-text-primary text-center truncate">
+            {/* 제목 + 안내 문구 */}
+            <div className="flex-shrink-0 px-4 lg:px-8 pt-3 pb-1 space-y-1">
+              <h1 className="text-2xl lg:text-3xl font-bold text-text-primary text-center truncate">
                 {currentItem.id}. {currentItem.emoji} {language === 'ko' ? currentItem.title : currentItem.titleEn}
               </h1>
-
-              {/* 2) 안내 문구 */}
-              <p className="text-lg text-primary font-medium text-center leading-snug">
+              <p className="text-xl lg:text-2xl text-primary font-medium text-center leading-snug">
                 &ldquo;{language === 'ko' ? currentItem.instruction : currentItem.instructionEn}&rdquo;
               </p>
+            </div>
 
-              {/* 3) 시범 영상 (자동재생) */}
-              {currentItem.demoVideo && (
-                <div className="w-full mx-auto rounded-lg overflow-hidden bg-black" style={{ maxHeight: '35vh' }}>
+            {/* 시범 영상 (화면의 약 55% 높이) */}
+            {currentItem.demoVideo && (
+              <div className="flex-shrink-0 px-4 lg:px-8 py-1" style={{ height: '55vh' }}>
+                <div className="w-full h-full rounded-xl overflow-hidden bg-black flex items-center justify-center">
                   <video
                     key={currentItem.id}
                     src={currentItem.demoVideo}
@@ -1044,15 +1093,15 @@ function GuideTab({ language }: { language: string }) {
                     loop
                     muted
                     playsInline
-                    className="w-full rounded-lg"
-                    style={{ maxHeight: '35vh', objectFit: 'contain' }}
+                    className="w-full h-full object-contain"
                   />
                 </div>
-              )}
-            </div>
+              </div>
+            )}
+          </div>
 
-            {/* 하단: 네비게이션 + 타이머 + 음성 + 진행률 */}
-            <div className="bg-surface border-t border-border py-4 lg:py-5 px-6 flex-shrink-0 space-y-3">
+          {/* 하단: 네비게이션 + 타이머 + 음성 + 진행률 */}
+          <div className="bg-surface border-t border-border py-3 px-6 flex-shrink-0 space-y-2">
               {/* 컨트롤 행 */}
               <div className="flex items-center justify-center gap-3 lg:gap-5 flex-wrap">
                 {/* 이전 */}
@@ -1146,7 +1195,6 @@ function GuideTab({ language }: { language: string }) {
                   {completedCount} / {totalCount} {language === 'ko' ? '항목 완료' : 'completed'}
                 </span>
               </div>
-            </div>
           </div>
         </div>
       )}
@@ -1196,60 +1244,30 @@ function NoProgressMessage({ language, icon: Icon }: { language: string; icon: R
   )
 }
 
-// ─── 나의 변화 탭 ───
+// ─── 나의 변화 탭 (Supabase 연동) ───
 function ProgressTab({ language }: { language: string }) {
-  const { history: bbsHistory } = useBBSStore()
-  const { sessions: romSessions } = useRomStore()
-  const { history: handHistory } = useHandFunctionStore()
-  const { history: facHistory } = useFACStore()
-  const { history: mbiHistory } = useMBIStore()
-  const { history: mmtHistory } = useMMTStore()
+  const { selectedPatientId } = usePatientContextStore()
+  const { byType, isLoading } = usePatientAssessments(selectedPatientId || undefined)
 
-  // ─── 데모 데이터 (DEMO_MODE = false 로 변경하면 실제 스토어 데이터 사용) ───
-  const DEMO_MODE = true
-
-  const bbsHist = DEMO_MODE ? [
-    { id: 'd4', timestamp: new Date('2026-02-04').getTime(), totalScore: 38, scores: {} as Record<number, number>, riskLevel: 'medium' as const },
-    { id: 'd3', timestamp: new Date('2026-01-30').getTime(), totalScore: 31, scores: {} as Record<number, number>, riskLevel: 'medium' as const },
-    { id: 'd2', timestamp: new Date('2026-01-20').getTime(), totalScore: 28, scores: {} as Record<number, number>, riskLevel: 'medium' as const },
-    { id: 'd1', timestamp: new Date('2026-01-10').getTime(), totalScore: 21, scores: {} as Record<number, number>, riskLevel: 'high' as const },
-  ] : bbsHistory
-
-  const facHist = DEMO_MODE ? [
-    { id: 'd3', timestamp: new Date('2026-02-04').getTime(), level: 2 },
-    { id: 'd2', timestamp: new Date('2026-01-25').getTime(), level: 2 },
-    { id: 'd1', timestamp: new Date('2026-01-10').getTime(), level: 1 },
-  ] : facHistory
-
-  const mbiHist = DEMO_MODE ? [
-    { id: 'd3', timestamp: new Date('2026-02-04').getTime(), totalScore: 62, scores: {} as Record<string, number> },
-    { id: 'd2', timestamp: new Date('2026-01-25').getTime(), totalScore: 55, scores: {} as Record<string, number> },
-    { id: 'd1', timestamp: new Date('2026-01-10').getTime(), totalScore: 45, scores: {} as Record<string, number> },
-  ] : mbiHistory
-
-  // MMT, Hand, ROM은 실제 스토어 데이터 (데모 없음 → 빈 상태)
-  const mmtHist = mmtHistory
-  const handHist = handHistory
-  const romSess = romSessions
+  // Supabase 데이터 (newest first)
+  const bbsItems = byType['BBS'] || []
+  const facItems = byType['FAC'] || []
+  const mbiItems = byType['MBI'] || []
+  const mmtItems = byType['MMT'] || []
+  const handItems = byType['HandFunction'] || []
+  const romItems = byType['ROM'] || []
 
   // 날짜 포맷 헬퍼
-  const fmtDate = (ts: number) => {
+  const fmtDate = (ts: string) => {
     const d = new Date(ts)
     return `${d.getMonth() + 1}/${d.getDate()}`
   }
 
-  // 차트 색상 (보라색)
   const CHART_COLOR = '#8B5CF6'
 
   // 날짜 범위 계산
-  const allTimestamps: number[] = [
-    ...bbsHist.map(h => h.timestamp),
-    ...facHist.map(h => h.timestamp),
-    ...mbiHist.map(h => h.timestamp),
-    ...mmtHist.map(h => h.timestamp),
-    ...handHist.map(h => h.timestamp),
-    ...romSess.map(s => new Date(s.timestamp).getTime()),
-  ]
+  const allItems = [...bbsItems, ...facItems, ...mbiItems, ...mmtItems, ...handItems, ...romItems]
+  const allTimestamps = allItems.map(a => new Date(a.assessed_at).getTime())
   const minTs = allTimestamps.length > 0 ? Math.min(...allTimestamps) : Date.now()
   const maxTs = allTimestamps.length > 0 ? Math.max(...allTimestamps) : Date.now()
   const minD = new Date(minTs)
@@ -1257,11 +1275,13 @@ function ProgressTab({ language }: { language: string }) {
   const dateRange = `${minD.getFullYear()}.${String(minD.getMonth() + 1).padStart(2, '0')} ~ ${maxD.getFullYear()}.${String(maxD.getMonth() + 1).padStart(2, '0')}`
 
   // ── BBS ──
-  const bbsChrono = [...bbsHist].reverse()
-  const bbsChartData = bbsChrono.map(h => ({ value: h.totalScore, date: fmtDate(h.timestamp) }))
-  const bbsLatest = bbsHist[0]
+  const bbsChrono = [...bbsItems].reverse()
+  const bbsChartData = bbsChrono.map(a => ({ value: Number(a.score) || 0, date: fmtDate(a.assessed_at) }))
+  const bbsLatest = bbsItems[0]
   const bbsOldest = bbsChrono[0]
-  const bbsChange = bbsHist.length >= 2 ? bbsLatest.totalScore - bbsOldest!.totalScore : null
+  const bbsLatestScore = bbsLatest ? Number(bbsLatest.score) || 0 : 0
+  const bbsOldestScore = bbsOldest ? Number(bbsOldest.score) || 0 : 0
+  const bbsChange = bbsItems.length >= 2 ? bbsLatestScore - bbsOldestScore : null
   const bbsComment = (() => {
     if (!bbsLatest) return ''
     if (bbsChange !== null) {
@@ -1270,17 +1290,18 @@ function ProgressTab({ language }: { language: string }) {
       if (bbsChange === 0) return language === 'ko' ? '꾸준히 유지하고 있어요' : 'Maintaining well'
       return language === 'ko' ? '함께 다시 노력해봐요!' : "Let's try again!"
     }
-    const s = bbsLatest.totalScore
-    if (language === 'ko') return s >= 45 ? '균형 감각이 좋아요!' : s >= 21 ? '조금씩 나아지고 있어요!' : '함께 노력해봐요!'
-    return s >= 45 ? 'Great balance!' : s >= 21 ? 'Getting better!' : "Let's keep trying!"
+    if (language === 'ko') return bbsLatestScore >= 45 ? '균형 감각이 좋아요!' : bbsLatestScore >= 21 ? '조금씩 나아지고 있어요!' : '함께 노력해봐요!'
+    return bbsLatestScore >= 45 ? 'Great balance!' : bbsLatestScore >= 21 ? 'Getting better!' : "Let's keep trying!"
   })()
 
   // ── FAC ──
-  const facChrono = [...facHist].reverse()
-  const facChartData = facChrono.map(h => ({ value: h.level, date: fmtDate(h.timestamp) }))
-  const facLatest = facHist[0]
+  const facChrono = [...facItems].reverse()
+  const facChartData = facChrono.map(a => ({ value: Number(a.score) || 0, date: fmtDate(a.assessed_at) }))
+  const facLatest = facItems[0]
   const facOldest = facChrono[0]
-  const facChange = facHist.length >= 2 ? facLatest.level - facOldest!.level : null
+  const facLatestLevel = facLatest ? Number(facLatest.score) || 0 : 0
+  const facOldestLevel = facOldest ? Number(facOldest.score) || 0 : 0
+  const facChange = facItems.length >= 2 ? facLatestLevel - facOldestLevel : null
   const facComment = (() => {
     if (!facLatest) return ''
     if (facChange !== null && facChange > 0) return language === 'ko' ? '보행이 좋아지고 있어요!' : 'Walking is improving!'
@@ -1289,11 +1310,13 @@ function ProgressTab({ language }: { language: string }) {
   })()
 
   // ── MBI ──
-  const mbiChrono = [...mbiHist].reverse()
-  const mbiChartData = mbiChrono.map(h => ({ value: h.totalScore, date: fmtDate(h.timestamp) }))
-  const mbiLatest = mbiHist[0]
+  const mbiChrono = [...mbiItems].reverse()
+  const mbiChartData = mbiChrono.map(a => ({ value: Number(a.score) || 0, date: fmtDate(a.assessed_at) }))
+  const mbiLatest = mbiItems[0]
   const mbiOldest = mbiChrono[0]
-  const mbiChange = mbiHist.length >= 2 ? mbiLatest.totalScore - mbiOldest!.totalScore : null
+  const mbiLatestScore = mbiLatest ? Number(mbiLatest.score) || 0 : 0
+  const mbiOldestScore = mbiOldest ? Number(mbiOldest.score) || 0 : 0
+  const mbiChange = mbiItems.length >= 2 ? mbiLatestScore - mbiOldestScore : null
   const mbiComment = (() => {
     if (!mbiLatest) return ''
     if (mbiChange !== null && mbiChange > 0) return language === 'ko' ? '일상생활이 편해지고 있어요!' : 'Daily life is getting easier!'
@@ -1302,22 +1325,24 @@ function ProgressTab({ language }: { language: string }) {
   })()
 
   // ── MMT ──
-  const computeMMTPercent = (result: typeof mmtHist[0]) => {
-    const scores = Object.values(result.scores)
+  const computeMMTPercent = (a: typeof mmtItems[0]) => {
+    const details = a.details as Record<string, unknown> | null
+    const scores = details?.scores as Record<string, { lt?: number | null; rt?: number | null }> | undefined
+    if (!scores) return 0
     let total = 0, count = 0
-    scores.forEach(s => {
-      if (s.lt !== null) { total += s.lt; count++ }
-      if (s.rt !== null) { total += s.rt; count++ }
+    Object.values(scores).forEach(s => {
+      if (s.lt != null) { total += s.lt; count++ }
+      if (s.rt != null) { total += s.rt; count++ }
     })
     return count > 0 ? Math.round((total / count / 5) * 100) : 0
   }
-  const mmtChrono = [...mmtHist].reverse()
-  const mmtChartData = mmtChrono.map(h => ({ value: computeMMTPercent(h), date: fmtDate(h.timestamp) }))
-  const mmtLatest = mmtHist[0]
+  const mmtChrono = [...mmtItems].reverse()
+  const mmtChartData = mmtChrono.map(a => ({ value: computeMMTPercent(a), date: fmtDate(a.assessed_at) }))
+  const mmtLatest = mmtItems[0]
   const mmtOldest = mmtChrono[0]
   const mmtLatestPct = mmtLatest ? computeMMTPercent(mmtLatest) : 0
   const mmtOldestPct = mmtOldest ? computeMMTPercent(mmtOldest) : 0
-  const mmtChange = mmtHist.length >= 2 ? mmtLatestPct - mmtOldestPct : null
+  const mmtChange = mmtItems.length >= 2 ? mmtLatestPct - mmtOldestPct : null
   const mmtComment = (() => {
     if (!mmtLatest) return ''
     if (mmtChange !== null && mmtChange > 0) return language === 'ko' ? '근력이 좋아지고 있어요!' : 'Getting stronger!'
@@ -1325,13 +1350,19 @@ function ProgressTab({ language }: { language: string }) {
   })()
 
   // ── Hand Function ──
-  const handChrono = [...handHist].reverse()
-  const handChartData = handChrono.map(h => ({ value: Math.round(((h.leftTotalScore + h.rightTotalScore) / 64) * 100), date: fmtDate(h.timestamp) }))
-  const handLatest = handHist[0]
+  const computeHandPercent = (a: typeof handItems[0]) => {
+    const details = a.details as Record<string, unknown> | null
+    const lt = details?.leftTotalScore as number | undefined
+    const rt = details?.rightTotalScore as number | undefined
+    return Math.round((((lt ?? 0) + (rt ?? 0)) / 64) * 100)
+  }
+  const handChrono = [...handItems].reverse()
+  const handChartData = handChrono.map(a => ({ value: computeHandPercent(a), date: fmtDate(a.assessed_at) }))
+  const handLatest = handItems[0]
   const handOldest = handChrono[0]
-  const handLatestPct = handLatest ? Math.round(((handLatest.leftTotalScore + handLatest.rightTotalScore) / 64) * 100) : 0
-  const handOldestPct = handOldest ? Math.round(((handOldest.leftTotalScore + handOldest.rightTotalScore) / 64) * 100) : 0
-  const handChange = handHist.length >= 2 ? handLatestPct - handOldestPct : null
+  const handLatestPct = handLatest ? computeHandPercent(handLatest) : 0
+  const handOldestPct = handOldest ? computeHandPercent(handOldest) : 0
+  const handChange = handItems.length >= 2 ? handLatestPct - handOldestPct : null
   const handComment = (() => {
     if (!handLatest) return ''
     if (handChange !== null && handChange > 0) return language === 'ko' ? '손 기능이 좋아지고 있어요!' : 'Hand function improving!'
@@ -1339,14 +1370,29 @@ function ProgressTab({ language }: { language: string }) {
   })()
 
   // ── ROM ──
-  const romChrono = [...romSess].reverse()
-  const romChartData = romChrono.map(s => ({ value: s.measurements.length, date: fmtDate(new Date(s.timestamp).getTime()) }))
-  const romLatest = romSess[0]
+  const romChrono = [...romItems].reverse()
+  const romLatest = romItems[0]
   const romOldest = romChrono[0]
-  const romChange = romSess.length >= 2 ? romLatest.measurements.length - romOldest!.measurements.length : null
+  const romLatestDetails = romLatest?.details as Record<string, unknown> | null
+  const romLatestScores = romLatestDetails?.scores as Record<string, Record<string, Record<string, number>>> | undefined
+  const romLatestSummary = romLatestScores ? extractRomSummary(romLatestScores) : []
+  const romOldestDetails = romOldest?.details as Record<string, unknown> | null
+  const romOldestScores = romOldestDetails?.scores as Record<string, Record<string, Record<string, number>>> | undefined
+  const romOldestSummary = romOldestScores ? extractRomSummary(romOldestScores) : []
+  // 전체 변화량 평균으로 코멘트 결정
+  const romAvgChange = (() => {
+    if (romItems.length < 2 || romLatestSummary.length === 0) return null
+    let total = 0
+    for (const item of romLatestSummary) {
+      const old = romOldestSummary.find(o => o.joint === item.joint)
+      total += old ? item.value - old.value : 0
+    }
+    return Math.round(total / romLatestSummary.length)
+  })()
   const romComment = (() => {
     if (!romLatest) return ''
-    if (romChange !== null && romChange > 0) return language === 'ko' ? '관절 움직임이 좋아지고 있어요!' : 'Joint mobility improving!'
+    if (romAvgChange !== null && romAvgChange > 0) return language === 'ko' ? '관절 움직임이 좋아지고 있어요!' : 'Joint mobility improving!'
+    if (romAvgChange !== null && romAvgChange === 0) return language === 'ko' ? '꾸준히 유지하고 있어요' : 'Maintaining well'
     return language === 'ko' ? '꾸준히 스트레칭해요!' : 'Keep stretching!'
   })()
 
@@ -1360,6 +1406,20 @@ function ProgressTab({ language }: { language: string }) {
     return `${oldVal}${unit} → ${newVal}${unit} (${sign}${change}${unit}${arrow})`
   }
 
+  if (!selectedPatientId) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center text-center p-8">
+        <User className="w-16 h-16 text-text-secondary/30 mb-4" />
+        <p className="text-2xl font-bold text-text-primary mb-2">
+          {language === 'ko' ? '환자가 선택되지 않았습니다' : 'No patient selected'}
+        </p>
+        <p className="text-lg text-text-secondary">
+          {language === 'ko' ? '치료사 화면에서 환자를 먼저 선택해 주세요' : 'Please select a patient from the therapist screen'}
+        </p>
+      </div>
+    )
+  }
+
   return (
     <div className="flex-1 flex flex-col overflow-hidden p-4 lg:p-6">
       <div className="max-w-5xl w-full mx-auto flex-1 flex flex-col min-h-0">
@@ -1367,20 +1427,25 @@ function ProgressTab({ language }: { language: string }) {
         <div className="flex items-center gap-2 mb-3 flex-shrink-0">
           <TrendingUp className="w-4 h-4 text-text-secondary/60" />
           <span className="text-sm text-text-secondary">{dateRange}</span>
+          {isLoading && (
+            <span className="text-xs text-text-secondary/50 animate-pulse">
+              {language === 'ko' ? '불러오는 중...' : 'Loading...'}
+            </span>
+          )}
         </div>
 
         {/* 그리드 — 2열 3행 */}
         <div className="flex-1 grid grid-cols-2 grid-rows-3 gap-3">
 
           {/* BBS 균형 능력 */}
-          <AssessmentCard icon={Shield} title={language === 'ko' ? '균형 능력' : 'Balance'} toolName="BBS" hasData={bbsHist.length > 0} delay={0.05} accentColor="bg-purple-500">
-            {bbsHist.length > 0 ? (
+          <AssessmentCard icon={Shield} title={language === 'ko' ? '균형 능력' : 'Balance'} toolName="BBS" hasData={bbsItems.length > 0} delay={0.05} accentColor="bg-purple-500">
+            {bbsItems.length > 0 ? (
               <>
                 <MiniChart data={bbsChartData} color={CHART_COLOR} domain={[0, 56]} />
                 <p className={cn('text-sm font-semibold mt-1', getChangeColor(bbsChange))}>
-                  {bbsHist.length >= 2
-                    ? fmtChangeText(bbsOldest!.totalScore, bbsLatest.totalScore, language === 'ko' ? '점' : 'pts', bbsChange!)
-                    : `${bbsLatest.totalScore}${language === 'ko' ? '점' : 'pts'} / 56`
+                  {bbsItems.length >= 2
+                    ? fmtChangeText(bbsOldestScore, bbsLatestScore, language === 'ko' ? '점' : 'pts', bbsChange!)
+                    : `${bbsLatestScore}${language === 'ko' ? '점' : 'pts'} / 56`
                   }
                 </p>
                 <p className="text-xs text-text-secondary mt-0.5">{bbsComment}</p>
@@ -1391,14 +1456,14 @@ function ProgressTab({ language }: { language: string }) {
           </AssessmentCard>
 
           {/* FAC 보행 능력 */}
-          <AssessmentCard icon={PersonStanding} title={language === 'ko' ? '보행 능력' : 'Walking'} toolName="FAC" hasData={facHist.length > 0} delay={0.1} accentColor="bg-blue-500">
-            {facHist.length > 0 ? (
+          <AssessmentCard icon={PersonStanding} title={language === 'ko' ? '보행 능력' : 'Walking'} toolName="FAC" hasData={facItems.length > 0} delay={0.1} accentColor="bg-blue-500">
+            {facItems.length > 0 ? (
               <>
                 <MiniChart data={facChartData} color={CHART_COLOR} domain={[0, 5]} />
                 <p className={cn('text-sm font-semibold mt-1', getChangeColor(facChange))}>
-                  {facHist.length >= 2
-                    ? `Lv.${facOldest!.level} → Lv.${facLatest.level} (${facChange! > 0 ? '+' : ''}${facChange}${facChange! > 0 ? ' ↑' : facChange! < 0 ? ' ↓' : ' →'})`
-                    : `Lv.${facLatest.level} / 5`
+                  {facItems.length >= 2
+                    ? `Lv.${facOldestLevel} → Lv.${facLatestLevel} (${facChange! > 0 ? '+' : ''}${facChange}${facChange! > 0 ? ' ↑' : facChange! < 0 ? ' ↓' : ' →'})`
+                    : `Lv.${facLatestLevel} / 5`
                   }
                 </p>
                 <p className="text-xs text-text-secondary mt-0.5">{facComment}</p>
@@ -1409,14 +1474,14 @@ function ProgressTab({ language }: { language: string }) {
           </AssessmentCard>
 
           {/* MBI 일상생활 */}
-          <AssessmentCard icon={HeartHandshake} title={language === 'ko' ? '일상생활' : 'Daily'} toolName="MBI" hasData={mbiHist.length > 0} delay={0.15}>
-            {mbiHist.length > 0 ? (
+          <AssessmentCard icon={HeartHandshake} title={language === 'ko' ? '일상생활' : 'Daily'} toolName="MBI" hasData={mbiItems.length > 0} delay={0.15}>
+            {mbiItems.length > 0 ? (
               <>
                 <MiniChart data={mbiChartData} color={CHART_COLOR} domain={[0, 100]} />
                 <p className={cn('text-sm font-semibold mt-1', getChangeColor(mbiChange))}>
-                  {mbiHist.length >= 2
-                    ? fmtChangeText(mbiOldest!.totalScore, mbiLatest.totalScore, language === 'ko' ? '점' : 'pts', mbiChange!)
-                    : `${mbiLatest.totalScore}${language === 'ko' ? '점' : 'pts'} / 100`
+                  {mbiItems.length >= 2
+                    ? fmtChangeText(mbiOldestScore, mbiLatestScore, language === 'ko' ? '점' : 'pts', mbiChange!)
+                    : `${mbiLatestScore}${language === 'ko' ? '점' : 'pts'} / 100`
                   }
                 </p>
                 <p className="text-xs text-text-secondary mt-0.5">{mbiComment}</p>
@@ -1427,12 +1492,12 @@ function ProgressTab({ language }: { language: string }) {
           </AssessmentCard>
 
           {/* MMT 근력 */}
-          <AssessmentCard icon={Dumbbell} title={language === 'ko' ? '근력' : 'Strength'} toolName="MMT" hasData={mmtHist.length > 0} delay={0.2}>
-            {mmtHist.length > 0 ? (
+          <AssessmentCard icon={Dumbbell} title={language === 'ko' ? '근력' : 'Strength'} toolName="MMT" hasData={mmtItems.length > 0} delay={0.2}>
+            {mmtItems.length > 0 ? (
               <>
                 <MiniChart data={mmtChartData} color={CHART_COLOR} domain={[0, 100]} />
                 <p className={cn('text-sm font-semibold mt-1', getChangeColor(mmtChange))}>
-                  {mmtHist.length >= 2
+                  {mmtItems.length >= 2
                     ? fmtChangeText(mmtOldestPct, mmtLatestPct, '%', mmtChange!)
                     : `${mmtLatestPct}%`
                   }
@@ -1445,12 +1510,12 @@ function ProgressTab({ language }: { language: string }) {
           </AssessmentCard>
 
           {/* Hand 손 기능 */}
-          <AssessmentCard icon={Hand} title={language === 'ko' ? '손 기능' : 'Hand'} toolName="Hand Function" hasData={handHist.length > 0} delay={0.25}>
-            {handHist.length > 0 ? (
+          <AssessmentCard icon={Hand} title={language === 'ko' ? '손 기능' : 'Hand'} toolName="Hand Function" hasData={handItems.length > 0} delay={0.25}>
+            {handItems.length > 0 ? (
               <>
                 <MiniChart data={handChartData} color={CHART_COLOR} domain={[0, 100]} />
                 <p className={cn('text-sm font-semibold mt-1', getChangeColor(handChange))}>
-                  {handHist.length >= 2
+                  {handItems.length >= 2
                     ? fmtChangeText(handOldestPct, handLatestPct, '%', handChange!)
                     : `${handLatestPct}%`
                   }
@@ -1463,17 +1528,32 @@ function ProgressTab({ language }: { language: string }) {
           </AssessmentCard>
 
           {/* ROM 관절 움직임 */}
-          <AssessmentCard icon={Move} title={language === 'ko' ? '관절 움직임' : 'Joint'} toolName="ROM" hasData={romSess.length > 0} delay={0.3}>
-            {romSess.length > 0 ? (
+          <AssessmentCard icon={Move} title={language === 'ko' ? '관절 움직임' : 'Joint'} toolName="ROM" hasData={romItems.length > 0} delay={0.3}>
+            {romItems.length > 0 ? (
               <>
-                <MiniChart data={romChartData} color={CHART_COLOR} />
-                <p className={cn('text-sm font-semibold mt-1', getChangeColor(romChange))}>
-                  {romSess.length >= 2
-                    ? `${romOldest!.measurements.length}${language === 'ko' ? '개' : ''} → ${romLatest.measurements.length}${language === 'ko' ? '개 관절' : ' joints'} (${romChange! > 0 ? '+' : ''}${romChange}${romChange! > 0 ? ' ↑' : romChange! < 0 ? ' ↓' : ' →'})`
-                    : `${romLatest.measurements.length}${language === 'ko' ? '개 관절 측정' : ' joints measured'}`
-                  }
-                </p>
-                <p className="text-xs text-text-secondary mt-0.5">{romComment}</p>
+                {romLatestSummary.length > 0 ? (
+                  <div className="space-y-1.5 mt-0.5">
+                    {romLatestSummary.map((item) => {
+                      const oldest = romOldestSummary.find(o => o.joint === item.joint)
+                      const oldValue = romItems.length >= 2 && oldest ? oldest.value : null
+                      return (
+                        <RomJointRow
+                          key={item.joint}
+                          label={language === 'ko' ? item.label : item.labelEn}
+                          value={item.value}
+                          prevValue={oldValue}
+                          normalVal={item.normalVal}
+                          language={language}
+                        />
+                      )
+                    })}
+                  </div>
+                ) : (
+                  <p className="text-sm text-text-secondary mt-1">
+                    {language === 'ko' ? '측정 데이터가 없어요' : 'No measurement data'}
+                  </p>
+                )}
+                <p className="text-xs text-text-secondary mt-1">{romComment}</p>
               </>
             ) : (
               <NoProgressMessage language={language} icon={Move} />

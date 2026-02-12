@@ -118,12 +118,13 @@ export function usePatientAssessments(patientId: string | undefined) {
       const first = mbiItems[mbiItems.length - 1]
       const last = mbiItems[0]
       const diff = Number(last.score) - Number(first.score)
+      const getDep = (s: number) => s >= 91 ? '독립' : s >= 50 ? '부분의존' : '의존'
       comments.push({
         type: 'MBI',
-        icon: diff > 0 ? 'up' : 'stable',
+        icon: diff > 0 ? 'up' : diff === 0 ? 'stable' : 'down',
         color: 'emerald',
-        title: `일상생활 독립성 ${diff > 0 ? '+' : ''}${diff}점 향상`,
-        detail: `MBI ${first.score}→${last.score}점으로 일상생활 수행능력이 개선되고 있습니다.`,
+        title: `일상생활 ${diff > 0 ? '+' : ''}${diff}점 변화`,
+        detail: `MBI ${first.score}→${last.score}점. ${getDep(Number(first.score))}에서 ${getDep(Number(last.score))}으로 변화.`,
       })
     }
 
@@ -150,9 +151,10 @@ export function usePatientAssessments(patientId: string | undefined) {
       else if (a.assessment_type === 'MBI') label = `${a.score}/100점`
       else if (a.assessment_type === 'MMT') {
         const scores = (a.details as Record<string, unknown>)?.scores as Record<string, { lt?: number; rt?: number }> | undefined
-        const upperLt = scores?.shoulder_flexor?.lt ?? '-'
-        const lowerLt = scores?.hip_flexor?.lt ?? '-'
-        label = `상지 ${upperLt}/5, 하지 ${lowerLt}/5`
+        const gradeNames: Record<number, string> = { 0: 'Zero', 1: 'Trace', 2: 'Poor', 3: 'Fair', 4: 'Good', 5: 'Normal' }
+        const upperLt = scores?.shoulder_flexor?.lt != null ? gradeNames[Math.round(scores.shoulder_flexor.lt)] ?? `${scores.shoulder_flexor.lt}` : '-'
+        const lowerLt = scores?.hip_flexor?.lt != null ? gradeNames[Math.round(scores.hip_flexor.lt)] ?? `${scores.hip_flexor.lt}` : '-'
+        label = `상지 ${upperLt}, 하지 ${lowerLt}`
       } else if (a.assessment_type === 'ROM') label = 'ROM 측정'
       else if (a.assessment_type === 'HandFunction') label = '상지기능 평가'
       else label = a.assessment_type
