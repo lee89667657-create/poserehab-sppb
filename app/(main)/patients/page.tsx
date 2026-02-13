@@ -214,7 +214,7 @@ export default function PatientsPage() {
                     <Card
                       className="cursor-pointer transition-shadow hover:shadow-md group relative"
                       onClick={() => {
-                        setSelectedPatient(patient.id, patient.name)
+                        setSelectedPatient(patient.id, patient.name, { age: patient.age, gender: patient.gender, diagnosis: patient.diagnosis })
                         router.push(`/patients/${patient.id}`)
                       }}
                     >

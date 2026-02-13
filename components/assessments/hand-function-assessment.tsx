@@ -1,11 +1,10 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Save, CheckCircle, RotateCcw, Monitor } from 'lucide-react'
+import { Save, CheckCircle, RotateCcw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useHandFunctionStore } from '@/stores/hand-function-store'
-import { usePatientGuideStore } from '@/stores/patient-guide-store'
 import { HAND_FUNCTION_ITEMS } from '@/types/assessments'
 import { cn } from '@/lib/utils'
 import { useTranslation } from '@/hooks/use-translation'
@@ -21,23 +20,9 @@ export function HandFunctionAssessment() {
     currentScores, notes, setScore, setNotes,
     getLeftTotalScore, getRightTotalScore, saveResult, reset,
   } = useHandFunctionStore()
-  const { setHandFunctionGuide, clearGuide } = usePatientGuideStore()
   const [saveSuccess, setSaveSuccess] = useState(false)
-  const [guideEnabled, setGuideEnabled] = useState(false)
-  const [focusedItem, setFocusedItem] = useState<string | null>(null)
   const { selectedPatientId } = usePatientContextStore()
   const { user } = useAuth()
-
-  useEffect(() => {
-    if (guideEnabled && focusedItem) {
-      const item = HAND_FUNCTION_ITEMS.find(i => i.id === focusedItem)
-      if (item) setHandFunctionGuide(item.id, item.name, item.nameEn)
-    } else if (!guideEnabled) {
-      clearGuide()
-    }
-  }, [focusedItem, guideEnabled, setHandFunctionGuide, clearGuide])
-
-  useEffect(() => { return () => { clearGuide() } }, [clearGuide])
 
   const leftTotal = getLeftTotalScore()
   const rightTotal = getRightTotalScore()
@@ -77,34 +62,6 @@ export function HandFunctionAssessment() {
         </div>
       </div>
 
-      {/* 환자 가이드 연동 */}
-      <div className="bg-surface rounded-lg border border-border px-3 py-2 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Monitor className="h-4 w-4 text-primary" />
-          <span className="text-xs font-medium text-text-primary">
-            {language === 'ko' ? '환자 가이드 연동' : 'Patient Guide'}
-          </span>
-          {guideEnabled && (
-            <a href="/patient-guide" target="_blank" rel="noopener noreferrer"
-              className="text-[10px] text-primary hover:underline">
-              ({language === 'ko' ? '새 창 열기' : 'Open'})
-            </a>
-          )}
-        </div>
-        <button
-          onClick={() => setGuideEnabled(!guideEnabled)}
-          className={cn(
-            'relative inline-flex h-5 w-9 items-center rounded-full transition-colors',
-            guideEnabled ? 'bg-primary' : 'bg-gray-300'
-          )}
-        >
-          <span className={cn(
-            'inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform',
-            guideEnabled ? 'translate-x-[18px]' : 'translate-x-[3px]'
-          )} />
-        </button>
-      </div>
-
       {/* Strength 측정값 테이블 */}
       <div className="bg-surface rounded-lg border border-border overflow-hidden">
         <div className="bg-background border-b border-border px-3 py-1.5">
@@ -126,11 +83,7 @@ export function HandFunctionAssessment() {
             {strengthItems.map((item) => (
               <tr
                 key={item.id}
-                onClick={() => setFocusedItem(item.id)}
-                className={cn(
-                  'transition-colors',
-                  guideEnabled && focusedItem === item.id ? 'bg-primary/5' : 'hover:bg-background/50'
-                )}
+                className="transition-colors hover:bg-background/50"
               >
                 <td className="px-3 py-1.5">
                   <div className="text-xs font-medium text-text-primary leading-tight">{item.nameEn}</div>
@@ -187,11 +140,7 @@ export function HandFunctionAssessment() {
             {selectItems.map((item) => (
               <tr
                 key={item.id}
-                onClick={() => setFocusedItem(item.id)}
-                className={cn(
-                  'transition-colors',
-                  guideEnabled && focusedItem === item.id ? 'bg-primary/5' : 'hover:bg-background/50'
-                )}
+                className="transition-colors hover:bg-background/50"
               >
                 <td className="px-3 py-1.5">
                   <div className="text-xs font-medium text-text-primary leading-tight">{item.nameEn}</div>

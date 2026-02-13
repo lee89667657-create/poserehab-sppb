@@ -81,7 +81,8 @@ export default function DashboardPage() {
   const todayAssessments = assessmentList.filter(
     (a) => new Date(a.timestamp).toDateString() === todayStr
   ).length
-  const complianceRate = 78 // 간단 기본값
+  // 재활이행률: 실제 운동/재활 이행 데이터가 쌓이면 계산, 없으면 null
+  const complianceRate: number | null = null
 
   const commentColorMap: Record<string, { bg: string; border: string; icon: string }> = {
     blue:    { bg: 'bg-blue-50 dark:bg-blue-500/10', border: 'border-blue-200 dark:border-blue-500/30', icon: 'text-blue-500' },
@@ -130,7 +131,7 @@ export default function DashboardPage() {
               {patients.map((p) => (
                 <button
                   key={p.id}
-                  onClick={() => setSelectedPatient(p.id, p.name)}
+                  onClick={() => setSelectedPatient(p.id, p.name, { age: p.age, gender: p.gender, diagnosis: p.diagnosis })}
                   className="text-left rounded-xl border border-border bg-surface p-4 hover:border-primary/50 hover:bg-primary/5 transition-all hover:shadow-md"
                 >
                   <div className="flex items-center gap-3">
@@ -170,7 +171,7 @@ export default function DashboardPage() {
     },
     {
       title: language === 'ko' ? '재활이행률' : 'Compliance',
-      value: `${complianceRate}%`,
+      value: complianceRate != null ? `${complianceRate}%` : '-',
       icon: Activity,
       color: 'text-violet-600',
       bgColor: 'bg-violet-50 dark:bg-violet-500/10',
@@ -178,9 +179,10 @@ export default function DashboardPage() {
   ]
 
   // 재활이행률 도넛 차트 데이터
+  const effectiveRate = complianceRate ?? 0
   const complianceData = [
-    { name: '이행', value: complianceRate },
-    { name: '미이행', value: 100 - complianceRate },
+    { name: '이행', value: effectiveRate },
+    { name: '미이행', value: 100 - effectiveRate },
   ]
   const COMPLIANCE_COLORS = ['hsl(var(--primary))', 'hsl(var(--border))']
 
@@ -303,10 +305,21 @@ export default function DashboardPage() {
                     </PieChart>
                   </ResponsiveContainer>
                   <div className="absolute inset-0 flex flex-col items-center justify-center">
-                    <span className="text-4xl font-bold text-text-primary">{complianceRate}%</span>
-                    <span className="text-xs text-text-secondary">
-                      {language === 'ko' ? '이번 주' : 'This week'}
-                    </span>
+                    {complianceRate != null ? (
+                      <>
+                        <span className="text-4xl font-bold text-text-primary">{complianceRate}%</span>
+                        <span className="text-xs text-text-secondary">
+                          {language === 'ko' ? '이번 주' : 'This week'}
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <span className="text-2xl font-bold text-text-secondary/40">-</span>
+                        <span className="text-xs text-text-secondary">
+                          {language === 'ko' ? '데이터 없음' : 'No data'}
+                        </span>
+                      </>
+                    )}
                   </div>
                 </div>
               </CardContent>

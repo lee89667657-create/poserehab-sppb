@@ -10,6 +10,7 @@ interface TrendPoint {
   BBS?: number
   FAC?: number
   MBI?: number
+  HF?: number
 }
 
 interface ClinicalComment {
@@ -47,7 +48,7 @@ export function usePatientAssessments(patientId: string | undefined) {
     const result: Record<string, { score: number | null; date: string }> = {}
     for (const [type, items] of Object.entries(byType)) {
       const latest = items[0]
-      result[type] = { score: latest.score ? Number(latest.score) : null, date: latest.assessed_at }
+      result[type] = { score: latest.score != null ? Number(latest.score) : null, date: latest.assessed_at }
     }
     return result
   }, [byType])
@@ -76,6 +77,20 @@ export function usePatientAssessments(patientId: string | undefined) {
     addToMap('BBS')
     addToMap('FAC')
     addToMap('MBI')
+
+    // HandFunction → HF (leftTotal 기준)
+    const hfItems = byType['HandFunction']
+    if (hfItems) {
+      ;[...hfItems].reverse().forEach((a) => {
+        const d = a.details as Record<string, unknown> | null
+        const lt = d?.leftTotalScore as number | undefined
+        if (lt == null) return
+        const key = formatDate(a.assessed_at)
+        const existing = dateMap.get(key) || { date: key, dateRaw: new Date(a.assessed_at).getTime() }
+        existing.HF = lt
+        dateMap.set(key, existing)
+      })
+    }
 
     return Array.from(dateMap.values()).sort((a, b) => a.dateRaw - b.dateRaw)
   }, [byType])

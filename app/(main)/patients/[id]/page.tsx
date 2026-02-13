@@ -46,6 +46,7 @@ export default function PatientDetailPage() {
   const {
     isLoading,
     latestScores,
+    trendData,
     clinicalComments,
     assessmentList,
     byType,
@@ -63,21 +64,16 @@ export default function PatientDetailPage() {
         const p = data as Patient | null
         if (p) {
           setPatient(p)
-          setSelectedPatient(p.id, p.name)
+          setSelectedPatient(p.id, p.name, { age: p.age, gender: p.gender, diagnosis: p.diagnosis })
         }
       })
   }, [patientId, setSelectedPatient])
 
   const recentAssessments = useMemo(() => assessmentList.slice(0, 7), [assessmentList])
 
-  // 더미 데이터 (BBS, Hand Function, FAC)
-  const scoreHighlightData = useMemo(() => [
-    { date: '01/06', BBS: 21, HF: 14, FAC: 1 },
-    { date: '01/20', BBS: 28, HF: 18, FAC: 2 },
-    { date: '02/03', BBS: 34, HF: 22, FAC: 2 },
-    { date: '02/17', BBS: 39, HF: 25, FAC: 3 },
-    { date: '03/03', BBS: 44, HF: 28, FAC: 4 },
-  ], [])
+  const hasAnyAssessment = assessmentList.length > 0
+  const hasBBSorHF = trendData.some(d => d.BBS != null || d.HF != null)
+  const hasFAC = trendData.some(d => d.FAC != null)
 
   const mmtGradeLabel = (grade: number | null | undefined): string => {
     if (grade == null) return '-'
@@ -113,7 +109,8 @@ export default function PatientDetailPage() {
     if (!items?.length) return null
     const d = items[0].details as Record<string, unknown> | null
     const scores = d?.scores as Record<string, unknown> | undefined
-    const cnt = scores ? Object.keys(scores).length : 0
+    if (!scores || Object.keys(scores).length === 0) return null
+    const cnt = Object.keys(scores).length
     return { date: items[0].assessed_at, summary: `${cnt}개 관절` }
   }, [byType])
 
@@ -179,7 +176,7 @@ export default function PatientDetailPage() {
 
   const handleGoToAssessment = () => {
     if (patient) {
-      setSelectedPatient(patient.id, patient.name)
+      setSelectedPatient(patient.id, patient.name, { age: patient.age, gender: patient.gender, diagnosis: patient.diagnosis })
     }
     router.push('/gait-analysis')
   }
@@ -381,43 +378,50 @@ export default function PatientDetailPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="pb-4">
-                <ResponsiveContainer width="100%" height={260}>
-                  <LineChart data={scoreHighlightData} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                    <XAxis dataKey="date" className="text-[10px]" tick={{ fill: 'hsl(var(--text-secondary))' }} />
-                    <YAxis
-                      yAxisId="left"
-                      className="text-[10px]"
-                      tick={{ fill: 'hsl(var(--text-secondary))' }}
-                      domain={[0, 56]}
-                      label={{ value: 'BBS', position: 'insideTopLeft', style: { fontSize: 10, fill: '#2563EB' } }}
-                    />
-                    <YAxis
-                      yAxisId="right"
-                      orientation="right"
-                      className="text-[10px]"
-                      tick={{ fill: 'hsl(var(--text-secondary))' }}
-                      domain={[0, 32]}
-                      label={{ value: 'HF', position: 'insideTopRight', style: { fontSize: 10, fill: '#7C3AED' } }}
-                    />
-                    <Tooltip
-                      contentStyle={{
-                        backgroundColor: 'hsl(var(--surface))',
-                        border: '1px solid hsl(var(--border))',
-                        borderRadius: '8px',
-                        fontSize: '12px',
-                      }}
-                      formatter={(value: number, name: string) => {
-                        if (name === 'BBS') return [`${value}/56`, 'BBS']
-                        if (name === '상지기능') return [`${value}/32`, 'Hand Function']
-                        return [value, name]
-                      }}
-                    />
-                    <Legend wrapperStyle={{ fontSize: '11px' }} />
-                    <Line yAxisId="left" type="monotone" dataKey="BBS" stroke="#2563EB" strokeWidth={2} dot={{ r: 4, fill: '#2563EB' }} connectNulls />
-                    <Line yAxisId="right" type="monotone" dataKey="HF" name="상지기능" stroke="#7C3AED" strokeWidth={2} dot={{ r: 4, fill: '#7C3AED' }} connectNulls />
-                  </LineChart>
-                </ResponsiveContainer>
+                {hasBBSorHF ? (
+                  <ResponsiveContainer width="100%" height={260}>
+                    <LineChart data={trendData} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
+                      <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                      <XAxis dataKey="date" className="text-[10px]" tick={{ fill: 'hsl(var(--text-secondary))' }} />
+                      <YAxis
+                        yAxisId="left"
+                        className="text-[10px]"
+                        tick={{ fill: 'hsl(var(--text-secondary))' }}
+                        domain={[0, 56]}
+                        label={{ value: 'BBS', position: 'insideTopLeft', style: { fontSize: 10, fill: '#2563EB' } }}
+                      />
+                      <YAxis
+                        yAxisId="right"
+                        orientation="right"
+                        className="text-[10px]"
+                        tick={{ fill: 'hsl(var(--text-secondary))' }}
+                        domain={[0, 32]}
+                        label={{ value: 'HF', position: 'insideTopRight', style: { fontSize: 10, fill: '#7C3AED' } }}
+                      />
+                      <Tooltip
+                        contentStyle={{
+                          backgroundColor: 'hsl(var(--surface))',
+                          border: '1px solid hsl(var(--border))',
+                          borderRadius: '8px',
+                          fontSize: '12px',
+                        }}
+                        formatter={(value: number, name: string) => {
+                          if (name === 'BBS') return [`${value}/56`, 'BBS']
+                          if (name === '상지기능') return [`${value}/32`, 'Hand Function']
+                          return [value, name]
+                        }}
+                      />
+                      <Legend wrapperStyle={{ fontSize: '11px' }} />
+                      <Line yAxisId="left" type="monotone" dataKey="BBS" stroke="#2563EB" strokeWidth={2} dot={{ r: 4, fill: '#2563EB' }} connectNulls />
+                      <Line yAxisId="right" type="monotone" dataKey="HF" name="상지기능" stroke="#7C3AED" strokeWidth={2} dot={{ r: 4, fill: '#7C3AED' }} connectNulls />
+                    </LineChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="flex flex-col items-center justify-center py-12 text-text-secondary">
+                    <TrendingUp className="h-10 w-10 text-text-secondary/20 mb-2" />
+                    <p className="text-sm">{language === 'ko' ? '아직 평가 기록이 없습니다' : 'No assessment data yet'}</p>
+                  </div>
+                )}
               </CardContent>
             </Card>
 
@@ -429,23 +433,30 @@ export default function PatientDetailPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="pb-4">
-                <ResponsiveContainer width="100%" height={200}>
-                  <LineChart data={scoreHighlightData} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                    <XAxis dataKey="date" className="text-[10px]" tick={{ fill: 'hsl(var(--text-secondary))' }} />
-                    <YAxis className="text-[10px]" tick={{ fill: 'hsl(var(--text-secondary))' }} domain={[0, 5]} ticks={[0, 1, 2, 3, 4, 5]} />
-                    <Tooltip
-                      contentStyle={{
-                        backgroundColor: 'hsl(var(--surface))',
-                        border: '1px solid hsl(var(--border))',
-                        borderRadius: '8px',
-                        fontSize: '12px',
-                      }}
-                      formatter={(value: number) => [`Lv.${value}`, 'FAC']}
-                    />
-                    <Line type="monotone" dataKey="FAC" stroke="#D97706" strokeWidth={2.5} dot={{ r: 5, fill: '#D97706' }} activeDot={{ r: 7 }} />
-                  </LineChart>
-                </ResponsiveContainer>
+                {hasFAC ? (
+                  <ResponsiveContainer width="100%" height={200}>
+                    <LineChart data={trendData} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
+                      <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                      <XAxis dataKey="date" className="text-[10px]" tick={{ fill: 'hsl(var(--text-secondary))' }} />
+                      <YAxis className="text-[10px]" tick={{ fill: 'hsl(var(--text-secondary))' }} domain={[0, 5]} ticks={[0, 1, 2, 3, 4, 5]} />
+                      <Tooltip
+                        contentStyle={{
+                          backgroundColor: 'hsl(var(--surface))',
+                          border: '1px solid hsl(var(--border))',
+                          borderRadius: '8px',
+                          fontSize: '12px',
+                        }}
+                        formatter={(value: number) => [`Lv.${value}`, 'FAC']}
+                      />
+                      <Line type="monotone" dataKey="FAC" stroke="#D97706" strokeWidth={2.5} dot={{ r: 5, fill: '#D97706' }} activeDot={{ r: 7 }} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="flex flex-col items-center justify-center py-8 text-text-secondary">
+                    <TrendingUp className="h-10 w-10 text-text-secondary/20 mb-2" />
+                    <p className="text-sm">{language === 'ko' ? '아직 평가 기록이 없습니다' : 'No assessment data yet'}</p>
+                  </div>
+                )}
               </CardContent>
             </Card>
 
@@ -516,12 +527,14 @@ export default function PatientDetailPage() {
                     {romKeyJoints.map(({ key, valueKey, label }) => {
                       const latestJoint = romChange.latestScores?.[key]
                       const oldestJoint = romChange.oldestScores?.[key]
-                      const latestVal = latestJoint?.lt?.[valueKey]
-                      const oldestVal = oldestJoint?.lt?.[valueKey]
+                      // 좌측 우선, 없으면 우측 값 사용
+                      const latestVal = latestJoint?.lt?.[valueKey] ?? latestJoint?.rt?.[valueKey]
+                      const oldestVal = oldestJoint?.lt?.[valueKey] ?? oldestJoint?.rt?.[valueKey]
+                      const side = latestJoint?.lt?.[valueKey] != null ? 'Lt' : latestJoint?.rt?.[valueKey] != null ? 'Rt' : null
                       if (latestVal == null) return null
                       return (
                         <div key={`${key}-${valueKey}`} className="flex items-center justify-between rounded-lg bg-background px-3 py-2">
-                          <span className="text-xs text-text-secondary">{label}</span>
+                          <span className="text-xs text-text-secondary">{label}{side === 'Rt' ? ' (Rt)' : ''}</span>
                           <span className="text-xs font-medium text-text-primary">
                             {romChange.hasChange && oldestVal != null ? (
                               <>{oldestVal}° → <span className="text-primary font-bold">{latestVal}°</span></>
@@ -685,51 +698,57 @@ export default function PatientDetailPage() {
                 </Card>
 
                 {/* 점수 변화 하이라이트 - 선 그래프 */}
-                <Card>
-                  <CardHeader className="pb-3">
-                    <CardTitle className="flex items-center gap-2 text-base">
-                      <Sparkles className="h-4 w-4 text-amber-500" />
-                      {language === 'ko' ? '점수 변화 하이라이트' : 'Score Change Highlights'}
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-6">
-                      {/* BBS 선 그래프 */}
-                      <div>
-                        <p className="text-xs font-semibold text-blue-600 mb-2">BBS (Berg Balance Scale)</p>
-                        <ResponsiveContainer width="100%" height={200}>
-                          <LineChart data={scoreHighlightData} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
-                            <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                            <XAxis dataKey="date" className="text-[10px]" tick={{ fill: 'hsl(var(--text-secondary))' }} />
-                            <YAxis className="text-[10px]" tick={{ fill: 'hsl(var(--text-secondary))' }} domain={[0, 56]} />
-                            <Tooltip
-                              contentStyle={{ backgroundColor: 'hsl(var(--surface))', border: '1px solid hsl(var(--border))', borderRadius: '8px', fontSize: '12px' }}
-                              formatter={(value: number) => [`${value}/56`, 'BBS']}
-                            />
-                            <Line type="monotone" dataKey="BBS" stroke="#2563EB" strokeWidth={2.5} dot={{ r: 5, fill: '#2563EB' }} activeDot={{ r: 7 }} />
-                          </LineChart>
-                        </ResponsiveContainer>
-                      </div>
+                {trendData.length > 0 && (
+                  <Card>
+                    <CardHeader className="pb-3">
+                      <CardTitle className="flex items-center gap-2 text-base">
+                        <Sparkles className="h-4 w-4 text-amber-500" />
+                        {language === 'ko' ? '점수 변화 하이라이트' : 'Score Change Highlights'}
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-6">
+                        {/* BBS 선 그래프 */}
+                        {trendData.some(d => d.BBS != null) && (
+                          <div>
+                            <p className="text-xs font-semibold text-blue-600 mb-2">BBS (Berg Balance Scale)</p>
+                            <ResponsiveContainer width="100%" height={200}>
+                              <LineChart data={trendData} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
+                                <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                                <XAxis dataKey="date" className="text-[10px]" tick={{ fill: 'hsl(var(--text-secondary))' }} />
+                                <YAxis className="text-[10px]" tick={{ fill: 'hsl(var(--text-secondary))' }} domain={[0, 56]} />
+                                <Tooltip
+                                  contentStyle={{ backgroundColor: 'hsl(var(--surface))', border: '1px solid hsl(var(--border))', borderRadius: '8px', fontSize: '12px' }}
+                                  formatter={(value: number) => [`${value}/56`, 'BBS']}
+                                />
+                                <Line type="monotone" dataKey="BBS" stroke="#2563EB" strokeWidth={2.5} dot={{ r: 5, fill: '#2563EB' }} activeDot={{ r: 7 }} />
+                              </LineChart>
+                            </ResponsiveContainer>
+                          </div>
+                        )}
 
-                      {/* FAC 선 그래프 */}
-                      <div>
-                        <p className="text-xs font-semibold text-amber-600 mb-2">FAC (Functional Ambulation Classification)</p>
-                        <ResponsiveContainer width="100%" height={200}>
-                          <LineChart data={scoreHighlightData} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
-                            <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                            <XAxis dataKey="date" className="text-[10px]" tick={{ fill: 'hsl(var(--text-secondary))' }} />
-                            <YAxis className="text-[10px]" tick={{ fill: 'hsl(var(--text-secondary))' }} domain={[0, 5]} ticks={[0, 1, 2, 3, 4, 5]} />
-                            <Tooltip
-                              contentStyle={{ backgroundColor: 'hsl(var(--surface))', border: '1px solid hsl(var(--border))', borderRadius: '8px', fontSize: '12px' }}
-                              formatter={(value: number) => [`Lv.${value}`, 'FAC']}
-                            />
-                            <Line type="monotone" dataKey="FAC" stroke="#D97706" strokeWidth={2.5} dot={{ r: 5, fill: '#D97706' }} activeDot={{ r: 7 }} />
-                          </LineChart>
-                        </ResponsiveContainer>
+                        {/* FAC 선 그래프 */}
+                        {trendData.some(d => d.FAC != null) && (
+                          <div>
+                            <p className="text-xs font-semibold text-amber-600 mb-2">FAC (Functional Ambulation Classification)</p>
+                            <ResponsiveContainer width="100%" height={200}>
+                              <LineChart data={trendData} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
+                                <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                                <XAxis dataKey="date" className="text-[10px]" tick={{ fill: 'hsl(var(--text-secondary))' }} />
+                                <YAxis className="text-[10px]" tick={{ fill: 'hsl(var(--text-secondary))' }} domain={[0, 5]} ticks={[0, 1, 2, 3, 4, 5]} />
+                                <Tooltip
+                                  contentStyle={{ backgroundColor: 'hsl(var(--surface))', border: '1px solid hsl(var(--border))', borderRadius: '8px', fontSize: '12px' }}
+                                  formatter={(value: number) => [`Lv.${value}`, 'FAC']}
+                                />
+                                <Line type="monotone" dataKey="FAC" stroke="#D97706" strokeWidth={2.5} dot={{ r: 5, fill: '#D97706' }} activeDot={{ r: 7 }} />
+                              </LineChart>
+                            </ResponsiveContainer>
+                          </div>
+                        )}
                       </div>
-                    </div>
-                  </CardContent>
-                </Card>
+                    </CardContent>
+                  </Card>
+                )}
 
                 {/* 격려 메시지 */}
                 <Card className="border-primary/20 bg-gradient-to-r from-primary/5 to-transparent">

@@ -8,11 +8,11 @@
   --secondary: #10B981;
   --warning: #F59E0B;
   --error: #EF4444;
-  --background: #FAFAFA;
+  --background: #F8F7F4;
   --surface: #FFFFFF;
-  --text-primary: #111827;
-  --text-secondary: #6B7280;
-  --border: #E5E7EB;
+  --text-primary: #2D2D2D;
+  --text-secondary: #6B6860;
+  --border: #E8E6E1;
 }
 
 .dark {
