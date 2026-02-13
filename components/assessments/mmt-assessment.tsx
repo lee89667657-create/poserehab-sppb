@@ -90,7 +90,6 @@ export function MMTAssessment() {
                 <tr key={item.id} className="hover:bg-background/50 transition-colors">
                   <td className="px-3 py-1.5">
                     <div className="text-xs font-medium text-text-primary leading-tight">{item.name}</div>
-                    <div className="text-[10px] text-text-secondary leading-tight">{item.nameKo}</div>
                   </td>
                   <td className="py-1.5">
                     <GradeButtons

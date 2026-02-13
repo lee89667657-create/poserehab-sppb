@@ -11,12 +11,13 @@ import {
   ClipboardList,
   Hand,
   Users,
+  Activity,
 } from 'lucide-react'
 import { MainLayout } from '@/components/layout/main-layout'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { BBSAssessment } from '@/components/bbs'
-import { MMTAssessment, ROMAssessment, FACAssessment } from '@/components/assessments'
+import { MMTAssessment, ROMAssessment, FACAssessment, ASIAAssessment } from '@/components/assessments'
 import { MBIAssessment } from '@/components/assessments/mbi-assessment'
 import { HandFunctionAssessment } from '@/components/assessments/hand-function-assessment'
 import { useTranslation } from '@/hooks/use-translation'
@@ -26,7 +27,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 
 type TherapyCategory = 'physical' | 'occupational'
-type PhysicalAssessment = 'mmt' | 'rom' | 'bbs' | 'fac'
+type PhysicalAssessment = 'mmt' | 'rom' | 'bbs' | 'fac' | 'asia'
 type OccupationalAssessment = 'mbi' | 'handFunction'
 type AssessmentType = PhysicalAssessment | OccupationalAssessment
 
@@ -35,6 +36,7 @@ const PHYSICAL_TABS = [
   { id: 'rom' as const, label: 'ROM', icon: Ruler },
   { id: 'bbs' as const, label: 'BBS', icon: Scale },
   { id: 'fac' as const, label: 'FAC', icon: PersonStanding },
+  { id: 'asia' as const, label: 'ASIA', icon: Activity },
 ]
 
 const OCCUPATIONAL_TABS = [
@@ -191,6 +193,7 @@ export default function AssessmentToolsPage() {
           {currentAssessment === 'rom' && <ROMAssessment />}
           {currentAssessment === 'bbs' && <BBSAssessment />}
           {currentAssessment === 'fac' && <FACAssessment />}
+          {currentAssessment === 'asia' && <ASIAAssessment />}
           {currentAssessment === 'mbi' && <MBIAssessment />}
           {currentAssessment === 'handFunction' && <HandFunctionAssessment />}
         </motion.div>

@@ -703,7 +703,7 @@ function FACHistoryCard({
         </div>
         <div className="flex-1 ml-4 max-w-[200px]">
           <div className="text-text-secondary text-sm">
-            {language === 'ko' ? level?.description : level?.descriptionEn}
+            {level?.descriptionEn}
           </div>
         </div>
       </div>
@@ -790,7 +790,7 @@ function MBIHistoryCard({
           return (
             <div key={item.id} className="bg-background rounded-lg p-1.5 text-center">
               <div className="text-text-secondary truncate text-[10px]">
-                {language === 'ko' ? item.name.slice(0, 4) : item.nameEn.slice(0, 5)}
+                {item.nameEn.slice(0, 8)}
               </div>
               <div className="font-medium text-text-primary">{score}</div>
             </div>

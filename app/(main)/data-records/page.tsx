@@ -10,6 +10,7 @@ import {
 } from 'recharts'
 import {
   FileDown,
+  FileSpreadsheet,
   TrendingUp,
   Minus,
   Calendar,
@@ -30,6 +31,7 @@ import { usePatientContextStore } from '@/stores/patient-context-store'
 import { usePatientAssessments } from '@/hooks/use-patient-assessments'
 import { cn } from '@/lib/utils'
 import { generateComparisonPdfReport, downloadPdf } from '@/lib/report/pdf-generator'
+import { generateAssessmentsCsv } from '@/lib/report/export-csv'
 
 type TabType = 'overview' | 'assessments' | 'exercise' | 'compliance'
 type AssessmentFilter = 'all' | 'BBS' | 'MMT' | 'ROM' | 'FAC' | 'MBI' | 'Hand'
@@ -41,8 +43,8 @@ export default function DataRecordsPage() {
   const [expandedCard, setExpandedCard] = useState<string | null>(null)
 
   const { exerciseRecords, getTotalStats } = useExerciseStore()
-  const { selectedPatientId } = usePatientContextStore()
-  const { byType } = usePatientAssessments(selectedPatientId || undefined)
+  const { selectedPatientId, selectedPatientName } = usePatientContextStore()
+  const { assessments, byType } = usePatientAssessments(selectedPatientId || undefined)
 
   const isKo = language === 'ko'
   const stats = getTotalStats()
@@ -324,6 +326,11 @@ export default function DataRecordsPage() {
     downloadPdf(blob, `comparison-report-${new Date().toISOString().split('T')[0]}.pdf`)
   }
 
+  const handleCsvExport = () => {
+    if (assessments.length === 0) return
+    generateAssessmentsCsv(assessments, selectedPatientName || 'patient')
+  }
+
   const tabs = [
     { id: 'overview' as const, label: isKo ? '종합 요약' : 'Overview', icon: Activity },
     { id: 'assessments' as const, label: isKo ? '평가 기록' : 'Assessments', icon: ClipboardList },
@@ -342,10 +349,16 @@ export default function DataRecordsPage() {
               {isKo ? '환자 평가 기록 및 재활 통계' : 'Patient assessment records & rehab statistics'}
             </p>
           </div>
-          <Button onClick={handleExportReport} size="sm">
-            <FileDown className="mr-1.5 h-4 w-4" />
-            {isKo ? '레포트 출력' : 'Export Report'}
-          </Button>
+          <div className="flex gap-2">
+            <Button onClick={handleExportReport} size="sm">
+              <FileDown className="mr-1.5 h-4 w-4" />
+              {isKo ? '레포트 출력' : 'Export Report'}
+            </Button>
+            <Button onClick={handleCsvExport} size="sm" variant="outline" disabled={assessments.length === 0}>
+              <FileSpreadsheet className="mr-1.5 h-4 w-4" />
+              {isKo ? 'CSV 내보내기' : 'Export CSV'}
+            </Button>
+          </div>
         </div>
 
         {/* 탭 */}

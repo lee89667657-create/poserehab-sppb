@@ -6,21 +6,21 @@ export interface MMTItem {
 }
 
 export const MMT_ITEMS: MMTItem[] = [
-  { id: 'shoulder_flexor', name: 'Shoulder Flexor', nameKo: '어깨 굴곡근' },
-  { id: 'elbow_flexor_extensor', name: 'Elbow Flexor/Extensor', nameKo: '팔꿈치 굴곡근/신전근' },
-  { id: 'finger_flexor_extensor', name: 'Finger Flexor/Extensor', nameKo: '손가락 굴곡근/신전근' },
-  { id: 'hip_flexor', name: 'Hip Flexor', nameKo: '고관절 굴곡근' },
-  { id: 'knee_extensor', name: 'Knee Extensor', nameKo: '무릎 신전근' },
-  { id: 'ankle_dorsiflexor', name: 'Ankle Dorsiflexor', nameKo: '발목 배굴근' },
+  { id: 'shoulder_flexor', name: 'Shoulder Flexors', nameKo: 'Shoulder Flexors' },
+  { id: 'elbow_flexor_extensor', name: 'Elbow Flexors/Extensors', nameKo: 'Elbow Flexors/Extensors' },
+  { id: 'finger_flexor_extensor', name: 'Finger Flexors/Extensors', nameKo: 'Finger Flexors/Extensors' },
+  { id: 'hip_flexor', name: 'Hip Flexors', nameKo: 'Hip Flexors' },
+  { id: 'knee_extensor', name: 'Knee Extensors', nameKo: 'Knee Extensors' },
+  { id: 'ankle_dorsiflexor', name: 'Ankle Dorsiflexors', nameKo: 'Ankle Dorsiflexors' },
 ]
 
 export const MMT_GRADES = [
-  { value: 0, label: '0', grade: 'Zero', description: '근수축 없음' },
-  { value: 1, label: '1', grade: 'Trace', description: '근수축 촉지만 가능' },
-  { value: 2, label: '2', grade: 'Poor', description: '중력 제거 시 full ROM' },
-  { value: 3, label: '3', grade: 'Fair', description: '중력에 대항하여 full ROM' },
-  { value: 4, label: '4', grade: 'Good', description: '중등도 저항에 대항하여 full ROM' },
-  { value: 5, label: '5', grade: 'Normal', description: '최대 저항에 대항하여 full ROM' },
+  { value: 0, label: '0', grade: 'Zero', description: 'No contraction' },
+  { value: 1, label: '1', grade: 'Trace', description: 'Palpable contraction, no movement' },
+  { value: 2, label: '2', grade: 'Poor', description: 'Full ROM with gravity eliminated' },
+  { value: 3, label: '3', grade: 'Fair', description: 'Full ROM against gravity' },
+  { value: 4, label: '4', grade: 'Good', description: 'Full ROM against moderate resistance' },
+  { value: 5, label: '5', grade: 'Normal', description: 'Full ROM against maximum resistance' },
 ]
 
 export interface MMTScore {
@@ -46,13 +46,13 @@ export interface ROMItem {
 }
 
 export const ROM_ITEMS: ROMItem[] = [
-  { id: 'shoulder_flex_ext', name: 'Shoulder Flexion/Extension', nameKo: '어깨 굴곡/신전', normalRange: '0-180 / 0-60', unit: '°', placeholder: '180/60', valueKeys: ['flexion', 'extension'] },
-  { id: 'elbow_flexion', name: 'Elbow Flexion', nameKo: '팔꿈치 굴곡', normalRange: '0-150', unit: '°', placeholder: '150', valueKeys: ['flexion'] },
-  { id: 'wrist_flex_ext', name: 'Wrist Flexion/Extension', nameKo: '손목 굴곡/신전', normalRange: '0-80 / 0-70', unit: '°', placeholder: '80/70', valueKeys: ['flexion', 'extension'] },
-  { id: 'finger_mcp_pip', name: 'Finger MCP/PIP Flexion', nameKo: '손가락 MCP/PIP 굴곡', normalRange: '0-90 / 0-100', unit: '°', placeholder: '90/100', valueKeys: ['flexion', 'extension'] },
-  { id: 'hip_flex_abd', name: 'Hip Flexion/Abduction', nameKo: '고관절 굴곡/외전', normalRange: '0-120 / 0-45', unit: '°', placeholder: '120/45', valueKeys: ['flexion', 'abduction'] },
-  { id: 'knee_flexion', name: 'Knee Flexion', nameKo: '무릎 굴곡', normalRange: '0-135', unit: '°', placeholder: '135', valueKeys: ['flexion'] },
-  { id: 'ankle_df_pf', name: 'Ankle D/F and P/F', nameKo: '발목 배굴/저굴', normalRange: '0-20 / 0-50', unit: '°', placeholder: '20/50', valueKeys: ['dorsiflexion', 'plantarflexion'] },
+  { id: 'shoulder_flex_ext', name: 'Shoulder Flexion/Extension', nameKo: 'Shoulder Flexion/Extension', normalRange: '0-180 / 0-60', unit: '°', placeholder: '180/60', valueKeys: ['flexion', 'extension'] },
+  { id: 'elbow_flexion', name: 'Elbow Flexion', nameKo: 'Elbow Flexion', normalRange: '0-150', unit: '°', placeholder: '150', valueKeys: ['flexion'] },
+  { id: 'wrist_flex_ext', name: 'Wrist Flexion/Extension', nameKo: 'Wrist Flexion/Extension', normalRange: '0-80 / 0-70', unit: '°', placeholder: '80/70', valueKeys: ['flexion', 'extension'] },
+  { id: 'finger_mcp_pip', name: 'Finger MCP/PIP Flexion', nameKo: 'Finger MCP/PIP Flexion', normalRange: '0-90 / 0-100', unit: '°', placeholder: '90/100', valueKeys: ['flexion', 'extension'] },
+  { id: 'hip_flex_abd', name: 'Hip Flexion/Abduction', nameKo: 'Hip Flexion/Abduction', normalRange: '0-120 / 0-45', unit: '°', placeholder: '120/45', valueKeys: ['flexion', 'abduction'] },
+  { id: 'knee_flexion', name: 'Knee Flexion', nameKo: 'Knee Flexion', normalRange: '0-135', unit: '°', placeholder: '135', valueKeys: ['flexion'] },
+  { id: 'ankle_df_pf', name: 'Ankle Dorsiflexion/Plantarflexion', nameKo: 'Ankle Dorsiflexion/Plantarflexion', normalRange: '0-20 / 0-50', unit: '°', placeholder: '20/50', valueKeys: ['dorsiflexion', 'plantarflexion'] },
 ]
 
 // 각 측(Lt/Rt)의 구조화된 값
@@ -74,37 +74,37 @@ export const FAC_LEVELS = [
   {
     value: 0,
     label: '0',
-    description: '보행 불가 또는 2인 이상 보조 필요',
+    description: 'Non-functional ambulator or requires help from 2+ persons',
     descriptionEn: 'Non-functional ambulator or requires help from 2+ persons'
   },
   {
     value: 1,
     label: '1',
-    description: '1인 지속적 보조 필요 (체중 지지)',
+    description: 'Requires continuous support from 1 person (weight bearing)',
     descriptionEn: 'Requires continuous support from 1 person (weight bearing)'
   },
   {
     value: 2,
     label: '2',
-    description: '1인 간헐적 보조 필요 (균형/협응)',
+    description: 'Requires intermittent support from 1 person (balance/coordination)',
     descriptionEn: 'Requires intermittent support from 1 person (balance/coordination)'
   },
   {
     value: 3,
     label: '3',
-    description: '감독만 필요',
+    description: 'Requires verbal supervision or standby help',
     descriptionEn: 'Requires verbal supervision or standby help'
   },
   {
     value: 4,
     label: '4',
-    description: '평지 독립 보행 (계단 등 불안정)',
+    description: 'Independent on level surfaces only',
     descriptionEn: 'Independent on level surfaces only'
   },
   {
     value: 5,
     label: '5',
-    description: '완전 독립 보행',
+    description: 'Independent ambulator (all surfaces)',
     descriptionEn: 'Independent ambulator (all surfaces)'
   },
 ]

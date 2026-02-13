@@ -1,5 +1,6 @@
 export { MMTAssessment } from './mmt-assessment'
 export { ROMAssessment } from './rom-assessment'
 export { FACAssessment } from './fac-assessment'
+export { ASIAAssessment } from './asia-assessment'
 export { MBIAssessment } from './mbi-assessment'
 export { HandFunctionAssessment } from './hand-function-assessment'

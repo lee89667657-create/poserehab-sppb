@@ -253,8 +253,8 @@ function AssessmentCard({
       className={cn(
         'rounded-xl overflow-hidden relative flex flex-col',
         hasData
-          ? 'bg-gray-800/80 border border-border'
-          : 'bg-surface/50 border-2 border-dashed border-border'
+          ? 'bg-white border border-gray-200 shadow-sm'
+          : 'bg-gray-50 border-2 border-dashed border-gray-200'
       )}
     >
       {hasData && accentColor && (
@@ -262,10 +262,10 @@ function AssessmentCard({
       )}
       <div className={cn('p-3 flex-1 flex flex-col', hasData && accentColor && 'pl-4')}>
         <div className="flex items-center gap-2 mb-1.5">
-          <Icon className={cn('w-6 h-6', hasData ? 'text-primary' : 'text-text-secondary/40')} />
-          <h3 className="text-lg font-bold text-text-primary">{title}</h3>
+          <Icon className={cn('w-6 h-6', hasData ? 'text-gray-700' : 'text-gray-300')} />
+          <h3 className="text-lg font-bold text-gray-900">{title}</h3>
           {toolName && (
-            <span className="text-xs text-text-secondary/60 font-medium">({toolName})</span>
+            <span className="text-xs text-gray-400 font-medium">({toolName})</span>
           )}
         </div>
         {children}
@@ -277,7 +277,7 @@ function AssessmentCard({
 // ─── 백분율 바 (컴팩트) ───
 function PercentBar({ percent, color }: { percent: number; color: string }) {
   return (
-    <div className="w-full h-2.5 bg-background rounded-full overflow-hidden mt-1.5">
+    <div className="w-full h-2.5 bg-gray-100 rounded-full overflow-hidden mt-1.5">
       <motion.div
         initial={{ width: 0 }}
         animate={{ width: `${percent}%` }}
@@ -333,23 +333,23 @@ function RomJointRow({ label, value, prevValue, normalVal, language }: {
   label: string; value: number; prevValue?: number | null; normalVal: number; language: string
 }) {
   const percent = Math.min(100, Math.round((value / normalVal) * 100))
-  const barColor = percent >= 80 ? 'bg-secondary' : percent >= 50 ? 'bg-warning' : 'bg-orange-500'
+  const barColor = percent >= 80 ? 'bg-emerald-500' : percent >= 50 ? 'bg-amber-500' : 'bg-orange-500'
   const hasChange = prevValue != null && prevValue !== value
   const change = prevValue != null ? value - prevValue : null
 
   return (
     <div className="flex items-center gap-2">
-      <span className="text-xs text-text-secondary w-[5.5rem] truncate">{label}</span>
+      <span className="text-xs text-gray-500 w-[5.5rem] truncate">{label}</span>
       <div className="flex-1 flex flex-col gap-0.5">
         <div className="flex items-center justify-between">
-          <span className="text-xs font-semibold text-text-primary">
+          <span className="text-xs font-semibold text-gray-800">
             {prevValue != null ? (
               <>
-                <span className="text-text-secondary">{prevValue}°</span>
-                <span className="text-text-secondary mx-0.5">{'\u2192'}</span>
+                <span className="text-gray-400">{prevValue}°</span>
+                <span className="text-gray-400 mx-0.5">{'\u2192'}</span>
                 <span>{value}°</span>
                 {change != null && change !== 0 && (
-                  <span className={cn('ml-1', change > 0 ? 'text-green-500' : 'text-orange-500')}>
+                  <span className={cn('ml-1', change > 0 ? 'text-green-600' : 'text-orange-500')}>
                     {change > 0 ? '\u2191' : '\u2193'}
                   </span>
                 )}
@@ -357,13 +357,13 @@ function RomJointRow({ label, value, prevValue, normalVal, language }: {
             ) : (
               <>
                 <span>{value}°</span>
-                <span className="text-text-secondary ml-1">/ {normalVal}°</span>
+                <span className="text-gray-400 ml-1">/ {normalVal}°</span>
               </>
             )}
           </span>
-          <span className="text-[10px] text-text-secondary/60">{percent}%</span>
+          <span className="text-[10px] text-gray-400">{percent}%</span>
         </div>
-        <div className="w-full h-1.5 bg-background rounded-full overflow-hidden">
+        <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
           <motion.div
             initial={{ width: 0 }}
             animate={{ width: `${percent}%` }}
@@ -380,11 +380,11 @@ function RomJointRow({ label, value, prevValue, normalVal, language }: {
 function NotYetMessage({ language, icon: Icon }: { language: string; icon: React.ElementType }) {
   return (
     <div className="flex-1 flex flex-col items-center justify-center py-2">
-      <Icon className="w-10 h-10 text-text-secondary/25 mb-1.5" />
-      <span className="text-base text-text-secondary">
+      <Icon className="w-10 h-10 text-gray-300 mb-1.5" />
+      <span className="text-base text-gray-400">
         {language === 'ko' ? '아직 검사 전이에요' : 'Not yet tested'}
       </span>
-      <span className="text-xs text-text-secondary/50 mt-0.5">
+      <span className="text-xs text-gray-300 mt-0.5">
         {language === 'ko' ? '검사 후 결과를 확인할 수 있어요' : 'Results available after testing'}
       </span>
     </div>
@@ -406,7 +406,7 @@ function StatusTab({ language }: { language: string }) {
 
   // BBS: 56점 만점
   const bbsScore = latestBBS?.score ? Number(latestBBS.score) : 0
-  const bbsPercent = latestBBS ? Math.round((bbsScore / 56) * 100) : 0
+  const bbsPercent = latestBBS ? Math.min(100, Math.round((bbsScore / 56) * 100)) : 0
   const bbsMessage = language === 'ko'
     ? bbsPercent >= 80 ? '균형 능력이 좋아요!' : bbsPercent >= 40 ? '조금 더 연습하면 좋아요!' : '꾸준히 연습하면 나아질 거예요!'
     : bbsPercent >= 80 ? 'Great balance!' : bbsPercent >= 40 ? 'A little more practice will help!' : 'Keep practicing, you will improve!'
@@ -424,7 +424,7 @@ function StatusTab({ language }: { language: string }) {
 
   // MBI: 100점 만점
   const mbiScore = latestMBI?.score ? Number(latestMBI.score) : 0
-  const mbiPercent = latestMBI ? Math.round((mbiScore / 100) * 100) : 0
+  const mbiPercent = latestMBI ? Math.min(100, Math.round((mbiScore / 100) * 100)) : 0
   const mbiMessage = language === 'ko'
     ? mbiScore >= 91 ? '일상생활이 편해요!' : mbiScore >= 50 ? '조금씩 나아지고 있어요!' : '꾸준히 노력하면 좋아질 거예요!'
     : mbiScore >= 91 ? 'Daily life is easy!' : mbiScore >= 50 ? 'Getting better!' : 'Keep trying, it will improve!'
@@ -441,7 +441,7 @@ function StatusTab({ language }: { language: string }) {
       if (s.lt != null) { total += s.lt; count++ }
       if (s.rt != null) { total += s.rt; count++ }
     })
-    return count > 0 ? Math.round((total / count / 5) * 100) : 0
+    return count > 0 ? Math.min(100, Math.round((total / count / 5) * 100)) : 0
   })()
   const mmtMessage = language === 'ko'
     ? mmtPercent >= 80 ? '근력이 아주 좋아요!' : mmtPercent >= 50 ? '근력이 좋아지고 있어요!' : '꾸준히 운동하면 강해질 거예요!'
@@ -451,8 +451,8 @@ function StatusTab({ language }: { language: string }) {
   const handDetails = latestHand?.details as Record<string, unknown> | null
   const handLScore = handDetails?.leftTotalScore as number | undefined
   const handRScore = handDetails?.rightTotalScore as number | undefined
-  const handLPercent = handLScore != null ? Math.round((handLScore / 32) * 100) : 0
-  const handRPercent = handRScore != null ? Math.round((handRScore / 32) * 100) : 0
+  const handLPercent = handLScore != null ? Math.min(100, Math.round((handLScore / 32) * 100)) : 0
+  const handRPercent = handRScore != null ? Math.min(100, Math.round((handRScore / 32) * 100)) : 0
 
   // ROM: 관절별 flexion 요약 추출
   const romDetails = latestROM?.details as Record<string, unknown> | null
@@ -508,10 +508,10 @@ function StatusTab({ language }: { language: string }) {
           <AssessmentCard icon={Shield} title={language === 'ko' ? '균형 능력' : 'Balance'} toolName="BBS" hasData={!!latestBBS} delay={0.05} accentColor="bg-purple-500">
             {latestBBS ? (
               <>
-                <p className="text-4xl lg:text-5xl font-extrabold text-primary">{bbsPercent}%</p>
-                <PercentBar percent={bbsPercent} color={bbsPercent >= 80 ? 'bg-secondary' : bbsPercent >= 40 ? 'bg-warning' : 'bg-error'} />
-                <p className="text-sm text-text-secondary mt-1">{bbsMessage}</p>
-                <p className="text-xs text-text-secondary/60 mt-0.5">{bbsScore}/56 · {formatAssessedDate(latestBBS.assessed_at)}</p>
+                <p className="text-4xl lg:text-5xl font-extrabold text-gray-900">{bbsPercent}%</p>
+                <PercentBar percent={bbsPercent} color={bbsPercent >= 80 ? 'bg-emerald-500' : bbsPercent >= 40 ? 'bg-amber-500' : 'bg-red-500'} />
+                <p className="text-sm text-gray-600 mt-1">{bbsMessage}</p>
+                <p className="text-xs text-gray-400 mt-0.5">{bbsScore}/56 · {formatAssessedDate(latestBBS.assessed_at)}</p>
               </>
             ) : (
               <NotYetMessage language={language} icon={Shield} />
@@ -522,15 +522,15 @@ function StatusTab({ language }: { language: string }) {
           <AssessmentCard icon={PersonStanding} title={language === 'ko' ? '보행 능력' : 'Walking'} toolName="FAC" hasData={!!latestFAC} delay={0.1} accentColor="bg-blue-500">
             {latestFAC ? (
               <>
-                <p className="text-4xl lg:text-5xl font-extrabold text-primary">
+                <p className="text-4xl lg:text-5xl font-extrabold text-gray-900">
                   Lv.{facLevel}
-                  <span className="text-lg text-text-secondary font-medium ml-1">/5</span>
+                  <span className="text-lg text-gray-400 font-medium ml-1">/5</span>
                 </p>
-                <PercentBar percent={(facLevel / 5) * 100} color={facLevel >= 4 ? 'bg-secondary' : facLevel >= 2 ? 'bg-warning' : 'bg-error'} />
-                <p className="text-sm text-text-secondary mt-1">
+                <PercentBar percent={(facLevel / 5) * 100} color={facLevel >= 4 ? 'bg-emerald-500' : facLevel >= 2 ? 'bg-amber-500' : 'bg-red-500'} />
+                <p className="text-sm text-gray-600 mt-1">
                   {facMessages[facLevel]?.[language === 'ko' ? 'ko' : 'en'] || ''}
                 </p>
-                <p className="text-xs text-text-secondary/60 mt-0.5">{formatAssessedDate(latestFAC.assessed_at)}</p>
+                <p className="text-xs text-gray-400 mt-0.5">{formatAssessedDate(latestFAC.assessed_at)}</p>
               </>
             ) : (
               <NotYetMessage language={language} icon={PersonStanding} />
@@ -541,10 +541,10 @@ function StatusTab({ language }: { language: string }) {
           <AssessmentCard icon={HeartHandshake} title={language === 'ko' ? '일상생활' : 'Daily Life'} toolName="MBI" hasData={!!latestMBI} delay={0.15} accentColor="bg-emerald-500">
             {latestMBI ? (
               <>
-                <p className="text-4xl lg:text-5xl font-extrabold text-primary">{mbiPercent}%</p>
-                <PercentBar percent={mbiPercent} color={mbiPercent >= 91 ? 'bg-secondary' : mbiPercent >= 50 ? 'bg-warning' : 'bg-error'} />
-                <p className="text-sm text-text-secondary mt-1">{mbiMessage}</p>
-                <p className="text-xs text-text-secondary/60 mt-0.5">{mbiScore}/100 · {formatAssessedDate(latestMBI.assessed_at)}</p>
+                <p className="text-4xl lg:text-5xl font-extrabold text-gray-900">{mbiPercent}%</p>
+                <PercentBar percent={mbiPercent} color={mbiPercent >= 91 ? 'bg-emerald-500' : mbiPercent >= 50 ? 'bg-amber-500' : 'bg-red-500'} />
+                <p className="text-sm text-gray-600 mt-1">{mbiMessage}</p>
+                <p className="text-xs text-gray-400 mt-0.5">{Math.min(mbiScore, 100)}/100 · {formatAssessedDate(latestMBI.assessed_at)}</p>
               </>
             ) : (
               <NotYetMessage language={language} icon={HeartHandshake} />
@@ -555,10 +555,10 @@ function StatusTab({ language }: { language: string }) {
           <AssessmentCard icon={Dumbbell} title={language === 'ko' ? '근력' : 'Strength'} toolName="MMT" hasData={!!latestMMT} delay={0.2}>
             {latestMMT ? (
               <>
-                <p className="text-3xl lg:text-4xl font-bold text-primary">{mmtPercent}%</p>
-                <PercentBar percent={mmtPercent} color={mmtPercent >= 80 ? 'bg-secondary' : mmtPercent >= 50 ? 'bg-warning' : 'bg-error'} />
-                <p className="text-sm text-text-secondary mt-1">{mmtMessage}</p>
-                <p className="text-xs text-text-secondary/60 mt-0.5">{formatAssessedDate(latestMMT.assessed_at)}</p>
+                <p className="text-3xl lg:text-4xl font-bold text-gray-900">{mmtPercent}%</p>
+                <PercentBar percent={mmtPercent} color={mmtPercent >= 80 ? 'bg-emerald-500' : mmtPercent >= 50 ? 'bg-amber-500' : 'bg-red-500'} />
+                <p className="text-sm text-gray-600 mt-1">{mmtMessage}</p>
+                <p className="text-xs text-gray-400 mt-0.5">{formatAssessedDate(latestMMT.assessed_at)}</p>
               </>
             ) : (
               <NotYetMessage language={language} icon={Dumbbell} />
@@ -571,29 +571,29 @@ function StatusTab({ language }: { language: string }) {
               <>
                 <div className="flex items-baseline gap-4">
                   <div>
-                    <span className="text-xs text-text-secondary">{language === 'ko' ? '좌' : 'L'}</span>
-                    <p className="text-2xl lg:text-3xl font-bold text-primary">{handLPercent}%</p>
+                    <span className="text-xs text-gray-500">{language === 'ko' ? '좌' : 'L'}</span>
+                    <p className="text-2xl lg:text-3xl font-bold text-gray-900">{handLPercent}%</p>
                   </div>
                   <div>
-                    <span className="text-xs text-text-secondary">{language === 'ko' ? '우' : 'R'}</span>
-                    <p className="text-2xl lg:text-3xl font-bold text-primary">{handRPercent}%</p>
+                    <span className="text-xs text-gray-500">{language === 'ko' ? '우' : 'R'}</span>
+                    <p className="text-2xl lg:text-3xl font-bold text-gray-900">{handRPercent}%</p>
                   </div>
                 </div>
                 <div className="space-y-1 mt-1">
                   <div className="flex items-center gap-2">
-                    <span className="text-xs text-text-secondary w-5">{language === 'ko' ? '좌' : 'L'}</span>
-                    <div className="flex-1 h-2 bg-background rounded-full overflow-hidden">
-                      <motion.div initial={{ width: 0 }} animate={{ width: `${handLPercent}%` }} transition={{ duration: 0.8 }} className="h-full rounded-full bg-primary" />
+                    <span className="text-xs text-gray-500 w-5">{language === 'ko' ? '좌' : 'L'}</span>
+                    <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
+                      <motion.div initial={{ width: 0 }} animate={{ width: `${handLPercent}%` }} transition={{ duration: 0.8 }} className="h-full rounded-full bg-indigo-500" />
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="text-xs text-text-secondary w-5">{language === 'ko' ? '우' : 'R'}</span>
-                    <div className="flex-1 h-2 bg-background rounded-full overflow-hidden">
-                      <motion.div initial={{ width: 0 }} animate={{ width: `${handRPercent}%` }} transition={{ duration: 0.8, delay: 0.1 }} className="h-full rounded-full bg-primary" />
+                    <span className="text-xs text-gray-500 w-5">{language === 'ko' ? '우' : 'R'}</span>
+                    <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
+                      <motion.div initial={{ width: 0 }} animate={{ width: `${handRPercent}%` }} transition={{ duration: 0.8, delay: 0.1 }} className="h-full rounded-full bg-indigo-500" />
                     </div>
                   </div>
                 </div>
-                <p className="text-xs text-text-secondary/60 mt-0.5">{formatAssessedDate(latestHand.assessed_at)}</p>
+                <p className="text-xs text-gray-400 mt-0.5">{formatAssessedDate(latestHand.assessed_at)}</p>
               </>
             ) : (
               <NotYetMessage language={language} icon={Hand} />
@@ -621,7 +621,7 @@ function StatusTab({ language }: { language: string }) {
                     })}
                   </div>
                 ) : (
-                  <p className="text-sm text-text-secondary mt-1">
+                  <p className="text-sm text-gray-500 mt-1">
                     {language === 'ko' ? '측정 데이터가 없어요' : 'No measurement data'}
                   </p>
                 )}
@@ -633,14 +633,14 @@ function StatusTab({ language }: { language: string }) {
                     ? (language === 'ko' ? '왼쪽' : 'Left')
                     : (language === 'ko' ? '오른쪽' : 'Right')
                   return (
-                    <p className="text-xs text-warning mt-1">
+                    <p className="text-xs text-amber-600 mt-1">
                       {language === 'ko'
                         ? `${weakSide}이 조금 더 연습이 필요해요`
                         : `${weakSide} side needs more practice`}
                     </p>
                   )
                 })()}
-                <p className="text-xs text-text-secondary/60 mt-0.5">{formatAssessedDate(latestROM.assessed_at)}</p>
+                <p className="text-xs text-gray-400 mt-0.5">{formatAssessedDate(latestROM.assessed_at)}</p>
               </>
             ) : (
               <NotYetMessage language={language} icon={Move} />
@@ -1221,7 +1221,7 @@ function MiniChart({ data, color, domain }: { data: { value: number; date: strin
             dataKey="value"
             stroke={color}
             strokeWidth={2.5}
-            dot={{ r: 4, fill: color, strokeWidth: 2, stroke: '#1F2937' }}
+            dot={{ r: 4, fill: color, strokeWidth: 2, stroke: '#FFFFFF' }}
           />
         </LineChart>
       </ResponsiveContainer>
@@ -1233,18 +1233,18 @@ function MiniChart({ data, color, domain }: { data: { value: number; date: strin
 function NoProgressMessage({ language, icon: Icon }: { language: string; icon: React.ElementType }) {
   return (
     <div className="flex-1 flex flex-col items-center justify-center py-2">
-      <Icon className="w-10 h-10 text-text-secondary/25 mb-1.5" />
-      <span className="text-sm text-text-secondary">
+      <Icon className="w-10 h-10 text-gray-300 mb-1.5" />
+      <span className="text-sm text-gray-400">
         {language === 'ko' ? '아직 기록이 없어요' : 'No records yet'}
       </span>
-      <span className="text-xs text-text-secondary/50 mt-0.5">
+      <span className="text-xs text-gray-300 mt-0.5">
         {language === 'ko' ? '검사를 시작하면 변화를 확인할 수 있어요' : 'Start testing to track changes'}
       </span>
     </div>
   )
 }
 
-// ─── 나의 변화 탭 (Supabase 연동) ───
+// ─── 재활 경과 탭 (Supabase 연동) ───
 function ProgressTab({ language }: { language: string }) {
   const { selectedPatientId } = usePatientContextStore()
   const { byType, isLoading } = usePatientAssessments(selectedPatientId || undefined)
@@ -1263,7 +1263,7 @@ function ProgressTab({ language }: { language: string }) {
     return `${d.getMonth() + 1}/${d.getDate()}`
   }
 
-  const CHART_COLOR = '#8B5CF6'
+  const CHART_COLOR = '#6366F1'
 
   // 날짜 범위 계산
   const allItems = [...bbsItems, ...facItems, ...mbiItems, ...mmtItems, ...handItems, ...romItems]
@@ -1334,7 +1334,7 @@ function ProgressTab({ language }: { language: string }) {
       if (s.lt != null) { total += s.lt; count++ }
       if (s.rt != null) { total += s.rt; count++ }
     })
-    return count > 0 ? Math.round((total / count / 5) * 100) : 0
+    return count > 0 ? Math.min(100, Math.round((total / count / 5) * 100)) : 0
   }
   const mmtChrono = [...mmtItems].reverse()
   const mmtChartData = mmtChrono.map(a => ({ value: computeMMTPercent(a), date: fmtDate(a.assessed_at) }))
@@ -1354,7 +1354,7 @@ function ProgressTab({ language }: { language: string }) {
     const details = a.details as Record<string, unknown> | null
     const lt = details?.leftTotalScore as number | undefined
     const rt = details?.rightTotalScore as number | undefined
-    return Math.round((((lt ?? 0) + (rt ?? 0)) / 64) * 100)
+    return Math.min(100, Math.round((((lt ?? 0) + (rt ?? 0)) / 64) * 100))
   }
   const handChrono = [...handItems].reverse()
   const handChartData = handChrono.map(a => ({ value: computeHandPercent(a), date: fmtDate(a.assessed_at) }))
@@ -1448,7 +1448,7 @@ function ProgressTab({ language }: { language: string }) {
                     : `${bbsLatestScore}${language === 'ko' ? '점' : 'pts'} / 56`
                   }
                 </p>
-                <p className="text-xs text-text-secondary mt-0.5">{bbsComment}</p>
+                <p className="text-xs text-gray-500 mt-0.5">{bbsComment}</p>
               </>
             ) : (
               <NoProgressMessage language={language} icon={Shield} />
@@ -1466,7 +1466,7 @@ function ProgressTab({ language }: { language: string }) {
                     : `Lv.${facLatestLevel} / 5`
                   }
                 </p>
-                <p className="text-xs text-text-secondary mt-0.5">{facComment}</p>
+                <p className="text-xs text-gray-500 mt-0.5">{facComment}</p>
               </>
             ) : (
               <NoProgressMessage language={language} icon={PersonStanding} />
@@ -1484,7 +1484,7 @@ function ProgressTab({ language }: { language: string }) {
                     : `${mbiLatestScore}${language === 'ko' ? '점' : 'pts'} / 100`
                   }
                 </p>
-                <p className="text-xs text-text-secondary mt-0.5">{mbiComment}</p>
+                <p className="text-xs text-gray-500 mt-0.5">{mbiComment}</p>
               </>
             ) : (
               <NoProgressMessage language={language} icon={HeartHandshake} />
@@ -1502,7 +1502,7 @@ function ProgressTab({ language }: { language: string }) {
                     : `${mmtLatestPct}%`
                   }
                 </p>
-                <p className="text-xs text-text-secondary mt-0.5">{mmtComment}</p>
+                <p className="text-xs text-gray-500 mt-0.5">{mmtComment}</p>
               </>
             ) : (
               <NoProgressMessage language={language} icon={Dumbbell} />
@@ -1520,7 +1520,7 @@ function ProgressTab({ language }: { language: string }) {
                     : `${handLatestPct}%`
                   }
                 </p>
-                <p className="text-xs text-text-secondary mt-0.5">{handComment}</p>
+                <p className="text-xs text-gray-500 mt-0.5">{handComment}</p>
               </>
             ) : (
               <NoProgressMessage language={language} icon={Hand} />
@@ -1549,11 +1549,11 @@ function ProgressTab({ language }: { language: string }) {
                     })}
                   </div>
                 ) : (
-                  <p className="text-sm text-text-secondary mt-1">
+                  <p className="text-sm text-gray-500 mt-1">
                     {language === 'ko' ? '측정 데이터가 없어요' : 'No measurement data'}
                   </p>
                 )}
-                <p className="text-xs text-text-secondary mt-1">{romComment}</p>
+                <p className="text-xs text-gray-500 mt-1">{romComment}</p>
               </>
             ) : (
               <NoProgressMessage language={language} icon={Move} />
@@ -1581,7 +1581,7 @@ export default function PatientPage() {
   const tabs: { id: TabType; label: string; labelEn: string; icon: React.ElementType }[] = [
     { id: 'status', label: '내 현황', labelEn: 'My Status', icon: Activity },
     { id: 'guide', label: '검사 가이드', labelEn: 'Test Guide', icon: BookOpen },
-    { id: 'progress', label: '나의 변화', labelEn: 'My Progress', icon: TrendingUp },
+    { id: 'progress', label: '재활 경과', labelEn: 'Rehab Progress', icon: TrendingUp },
   ]
 
   return (

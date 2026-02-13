@@ -63,8 +63,28 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
   },
 
   signIn: async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
-    if (error) throw error
+    set({ isLoading: true })
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password })
+    if (error) {
+      set({ isLoading: false })
+      throw error
+    }
+    // 세션 + 치료사 데이터를 스토어에 즉시 반영 (onAuthStateChange 대기하지 않음)
+    if (data.session?.user) {
+      const { data: therapistData } = await supabase
+        .from('therapists')
+        .select('*')
+        .eq('id', data.session.user.id)
+        .single()
+      set({
+        user: data.session.user,
+        session: data.session,
+        therapist: (therapistData as Therapist | null),
+        isLoading: false,
+      })
+    } else {
+      set({ isLoading: false })
+    }
   },
 
   signOut: async () => {

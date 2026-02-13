@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import {
@@ -14,6 +14,8 @@ import {
   Sparkles,
   ArrowUpRight,
   ChevronRight,
+  FileDown,
+  Loader2,
 } from 'lucide-react'
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
@@ -28,6 +30,8 @@ import { useTranslation } from '@/hooks/use-translation'
 import { supabase } from '@/lib/supabase'
 import { cn } from '@/lib/utils'
 import type { Patient } from '@/types/database'
+import { generatePatientReportPdf } from '@/lib/report/patient-report-pdf'
+import { downloadPdf } from '@/lib/report/pdf-generator'
 import Link from 'next/link'
 
 type TabType = 'assessments' | 'rehab' | 'changes'
@@ -44,6 +48,7 @@ export default function PatientDetailPage() {
   const [activeTab, setActiveTab] = useState<TabType>('assessments')
 
   const {
+    assessments,
     isLoading,
     latestScores,
     trendData,
@@ -51,6 +56,8 @@ export default function PatientDetailPage() {
     assessmentList,
     byType,
   } = usePatientAssessments(patientId)
+
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false)
 
   // 환자 정보 가져오기
   useEffect(() => {
@@ -100,7 +107,7 @@ export default function PatientDetailPage() {
     const hLt = scores?.hip_flexor?.lt
     return {
       date: items[0].assessed_at,
-      summary: `상지 ${mmtGradeLabel(sLt)} / 하지 ${mmtGradeLabel(hLt)}`,
+      summary: `UE ${mmtGradeLabel(sLt)} / LE ${mmtGradeLabel(hLt)}`,
     }
   }, [byType])
 
@@ -111,7 +118,7 @@ export default function PatientDetailPage() {
     const scores = d?.scores as Record<string, unknown> | undefined
     if (!scores || Object.keys(scores).length === 0) return null
     const cnt = Object.keys(scores).length
-    return { date: items[0].assessed_at, summary: `${cnt}개 관절` }
+    return { date: items[0].assessed_at, summary: `${cnt} joints` }
   }, [byType])
 
   const mmtChange = useMemo(() => {
@@ -143,18 +150,18 @@ export default function PatientDetailPage() {
   }, [byType])
 
   const mmtMuscleGroups = [
-    { key: 'shoulder_flexor', label: '어깨 굴곡근' },
-    { key: 'elbow_flexor_extensor', label: '팔꿈치 굴신근' },
-    { key: 'hip_flexor', label: '고관절 굴곡근' },
-    { key: 'knee_extensor', label: '무릎 신전근' },
-    { key: 'ankle_dorsiflexor', label: '발목 배굴근' },
+    { key: 'shoulder_flexor', label: 'Shoulder Flexors' },
+    { key: 'elbow_flexor_extensor', label: 'Elbow Flexors/Extensors' },
+    { key: 'hip_flexor', label: 'Hip Flexors' },
+    { key: 'knee_extensor', label: 'Knee Extensors' },
+    { key: 'ankle_dorsiflexor', label: 'Ankle Dorsiflexors' },
   ]
 
   const romKeyJoints = [
-    { key: 'shoulder_flex_ext', valueKey: 'flexion', label: '어깨 굴곡' },
-    { key: 'hip_flex_abd', valueKey: 'flexion', label: '고관절 굴곡' },
-    { key: 'knee_flexion', valueKey: 'flexion', label: '무릎 굴곡' },
-    { key: 'ankle_df_pf', valueKey: 'dorsiflexion', label: '발목 배측굴곡' },
+    { key: 'shoulder_flex_ext', valueKey: 'flexion', label: 'Shoulder Flexion' },
+    { key: 'hip_flex_abd', valueKey: 'flexion', label: 'Hip Flexion' },
+    { key: 'knee_flexion', valueKey: 'flexion', label: 'Knee Flexion' },
+    { key: 'ankle_df_pf', valueKey: 'dorsiflexion', label: 'Ankle Dorsiflexion' },
   ]
 
   const daysInHospital = patient
@@ -180,6 +187,28 @@ export default function PatientDetailPage() {
     }
     router.push('/gait-analysis')
   }
+
+  const handleGenerateReport = useCallback(async () => {
+    if (!patient || assessments.length === 0) return
+    setIsGeneratingPdf(true)
+    try {
+      const blob = await generatePatientReportPdf({
+        patient: {
+          name: patient.name,
+          age: patient.age,
+          gender: patient.gender,
+          diagnosis: patient.diagnosis,
+          admissionDate: patient.admission_date,
+          onsetDate: patient.onset_date,
+        },
+        assessments,
+        language: language as 'ko' | 'en',
+      })
+      downloadPdf(blob, `${patient.name}_report_${new Date().toISOString().split('T')[0]}.pdf`)
+    } finally {
+      setIsGeneratingPdf(false)
+    }
+  }, [patient, assessments, language])
 
   if (!patient && !isLoading) {
     return (
@@ -554,11 +583,25 @@ export default function PatientDetailPage() {
               </CardContent>
             </Card>
 
-            {/* 새 평가 버튼 */}
-            <Button onClick={handleGoToAssessment} className="w-full">
-              <ClipboardCheck className="mr-2 h-4 w-4" />
-              {language === 'ko' ? '새 평가 시작' : 'Start New Assessment'}
-            </Button>
+            {/* 새 평가 + 리포트 출력 버튼 */}
+            <div className="flex gap-3">
+              <Button onClick={handleGoToAssessment} className="flex-1">
+                <ClipboardCheck className="mr-2 h-4 w-4" />
+                {language === 'ko' ? '새 평가 시작' : 'Start New Assessment'}
+              </Button>
+              <Button
+                variant="outline"
+                onClick={handleGenerateReport}
+                disabled={isGeneratingPdf || assessments.length === 0}
+              >
+                {isGeneratingPdf ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <FileDown className="mr-2 h-4 w-4" />
+                )}
+                {language === 'ko' ? '리포트 출력' : 'Export Report'}
+              </Button>
+            </div>
 
             {/* 최근 평가 테이블 */}
             {recentAssessments.length > 0 && (

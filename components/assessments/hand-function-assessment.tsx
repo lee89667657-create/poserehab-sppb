@@ -144,7 +144,6 @@ export function HandFunctionAssessment() {
               >
                 <td className="px-3 py-1.5">
                   <div className="text-xs font-medium text-text-primary leading-tight">{item.nameEn}</div>
-                  <div className="text-[10px] text-text-secondary leading-tight">{item.name}</div>
                 </td>
                 <td className="py-1.5">
                   <div className="flex items-center justify-center gap-0.5">

@@ -104,10 +104,7 @@ export function MBIAssessment() {
               <tr key={item.id} className="hover:bg-background/50 transition-colors">
                 <td className="px-3 py-1.5">
                   <div className="text-xs font-medium text-text-primary leading-tight">
-                    {language === 'ko' ? item.name : item.nameEn}
-                  </div>
-                  <div className="text-[10px] text-text-secondary leading-tight">
-                    {language === 'ko' ? item.nameEn : item.name}
+                    {item.nameEn}
                   </div>
                 </td>
                 <td className="text-center py-1.5">

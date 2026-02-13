@@ -9,9 +9,10 @@ export function middleware(request: NextRequest) {
     return NextResponse.next()
   }
 
-  // Supabase 세션 쿠키 존재 여부만 체크
+  // Supabase 세션 쿠키 존재 여부 체크 (chunked 쿠키 포함: -auth-token.0, .1 등)
   const hasSession = request.cookies.getAll().some(cookie =>
-    cookie.name.startsWith('sb-') && cookie.name.endsWith('-auth-token')
+    cookie.name.startsWith('sb-') &&
+    (cookie.name.endsWith('-auth-token') || cookie.name.includes('-auth-token.'))
   )
 
   if (!hasSession) {

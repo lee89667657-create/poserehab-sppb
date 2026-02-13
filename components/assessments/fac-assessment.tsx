@@ -112,7 +112,7 @@ export function FACAssessment() {
                 </td>
                 <td className="px-3 py-1.5">
                   <div className="text-xs font-medium text-text-primary leading-tight">
-                    {language === 'ko' ? level.description : level.descriptionEn}
+                    {level.descriptionEn}
                   </div>
                 </td>
                 <td className="text-center py-1.5">

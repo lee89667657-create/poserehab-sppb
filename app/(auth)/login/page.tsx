@@ -23,11 +23,10 @@ export default function LoginPage() {
 
     try {
       await signIn(email, password)
-      router.push('/patients')
+      router.replace('/patients')
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : '로그인에 실패했습니다'
       setError(message)
-    } finally {
       setIsLoading(false)
     }
   }
