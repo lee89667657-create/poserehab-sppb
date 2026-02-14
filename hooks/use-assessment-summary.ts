@@ -8,6 +8,7 @@ import { useHandFunctionStore } from '@/stores/hand-function-store'
 import { MMT_ITEMS, MMT_GRADES, ROM_ITEMS } from '@/types/assessments'
 import type { BBSResult } from '@/types/bbs'
 import type { FACResult, MBIResult, MMTResult, ROMResult, HandFunctionResult } from '@/types/assessments'
+import type { Assessment } from '@/types/database'
 
 export interface AssessmentScoreCard {
   type: string
@@ -94,6 +95,183 @@ function buildROMSummary(result: ROMResult): string {
     }
   }
   return lines.join('\n')
+}
+
+/**
+ * Build assessment summary from Supabase Assessment[] data.
+ * Returns the same scoreCards/trendData/mmtSummary/romSummary format
+ * used by the reports page.
+ */
+export function buildSummaryFromDB(assessments: Assessment[]): {
+  scoreCards: AssessmentScoreCard[]
+  trendData: AssessmentTrendPoint[]
+  mmtSummary: string
+  romSummary: string
+} {
+  // Group by assessment_type, sort each group newest first
+  const byType: Record<string, Assessment[]> = {}
+  for (const a of assessments) {
+    if (!byType[a.assessment_type]) byType[a.assessment_type] = []
+    byType[a.assessment_type].push(a)
+  }
+  for (const key of Object.keys(byType)) {
+    byType[key].sort((a, b) => new Date(b.assessed_at).getTime() - new Date(a.assessed_at).getTime())
+  }
+
+  // --- Score Cards ---
+  const scoreCards: AssessmentScoreCard[] = []
+
+  const latestBBS = byType['BBS']?.[0]
+  if (latestBBS) {
+    const details = latestBBS.details as Record<string, unknown> | null
+    const riskLevel = (details?.riskLevel as string) || ''
+    scoreCards.push({
+      type: 'BBS',
+      label: 'Berg Balance Scale',
+      score: Number(latestBBS.score) || 0,
+      maxScore: 56,
+      date: latestBBS.assessed_at.split('T')[0],
+      color: getBBSColor(riskLevel),
+      detail: getBBSRiskLabel(riskLevel),
+    })
+  }
+
+  const latestFAC = byType['FAC']?.[0]
+  if (latestFAC) {
+    const score = Number(latestFAC.score) || 0
+    scoreCards.push({
+      type: 'FAC',
+      label: 'Functional Ambulation',
+      score,
+      maxScore: 5,
+      date: latestFAC.assessed_at.split('T')[0],
+      color: score >= 4 ? '#10B981' : score >= 2 ? '#F59E0B' : '#EF4444',
+    })
+  }
+
+  const latestMBI = byType['MBI']?.[0]
+  if (latestMBI) {
+    const score = Number(latestMBI.score) || 0
+    scoreCards.push({
+      type: 'MBI',
+      label: 'Modified Barthel Index',
+      score,
+      maxScore: 100,
+      date: latestMBI.assessed_at.split('T')[0],
+      color: score >= 75 ? '#10B981' : score >= 50 ? '#F59E0B' : '#EF4444',
+    })
+  }
+
+  const latestHF = byType['HandFunction']?.[0]
+  if (latestHF) {
+    const details = latestHF.details as Record<string, unknown> | null
+    const leftTotal = (details?.leftTotalScore as number) ?? 0
+    const rightTotal = (details?.rightTotalScore as number) ?? 0
+    scoreCards.push({
+      type: 'Hand',
+      label: 'Hand Function',
+      score: `L:${leftTotal}/R:${rightTotal}`,
+      maxScore: 32,
+      date: latestHF.assessed_at.split('T')[0],
+      color: '#6366F1',
+    })
+  }
+
+  // --- Trend Data ---
+  const dateMap = new Map<string, AssessmentTrendPoint>()
+
+  const addTrend = (type: string, key: 'bbs' | 'fac' | 'mbi') => {
+    const items = byType[type]
+    if (!items) return
+    for (const a of [...items].reverse()) {
+      if (a.score === null) continue
+      const d = a.assessed_at.split('T')[0]
+      const existing = dateMap.get(d) || { date: d }
+      existing[key] = Number(a.score)
+      dateMap.set(d, existing)
+    }
+  }
+
+  addTrend('BBS', 'bbs')
+  addTrend('FAC', 'fac')
+  addTrend('MBI', 'mbi')
+
+  const trendData = Array.from(dateMap.values()).sort(
+    (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
+  )
+
+  // --- MMT Summary ---
+  let mmtSummary = ''
+  const latestMMT = byType['MMT']?.[0]
+  if (latestMMT) {
+    const details = latestMMT.details as Record<string, unknown> | null
+    const scores = details?.scores as Record<string, { lt?: number; rt?: number }> | undefined
+    if (scores) {
+      const mmtResult: MMTResult = {
+        id: latestMMT.id,
+        timestamp: new Date(latestMMT.assessed_at).getTime(),
+        scores: {},
+      }
+      for (const [key, val] of Object.entries(scores)) {
+        mmtResult.scores[key] = {
+          lt: val.lt ?? null,
+          rt: val.rt ?? null,
+        }
+      }
+      mmtSummary = buildMMTSummary(mmtResult)
+    }
+  }
+
+  // --- ROM Summary ---
+  let romSummary = ''
+  const latestROM = byType['ROM']?.[0]
+  if (latestROM) {
+    const details = latestROM.details as Record<string, unknown> | null
+    const scores = details?.scores as Record<string, { lt?: Record<string, number | null>; rt?: Record<string, number | null> }> | undefined
+    if (scores) {
+      const lines: string[] = []
+      const matched = new Set<string>()
+
+      // Try matching ROM_ITEMS IDs first
+      for (const item of ROM_ITEMS) {
+        const score = scores[item.id]
+        if (!score) continue
+        matched.add(item.id)
+        const ltValues = Object.entries(score.lt || {})
+          .filter(([, v]) => v !== null)
+          .map(([k, v]) => `${k}:${v}°`)
+          .join('/')
+        const rtValues = Object.entries(score.rt || {})
+          .filter(([, v]) => v !== null)
+          .map(([k, v]) => `${k}:${v}°`)
+          .join('/')
+        if (ltValues || rtValues) {
+          lines.push(`${item.name}: Lt.(${ltValues || '-'}) / Rt.(${rtValues || '-'})`)
+        }
+      }
+
+      // Unmatched raw keys (e.g. 'shoulder', 'knee', 'hip' from seed data)
+      for (const [key, score] of Object.entries(scores)) {
+        if (matched.has(key)) continue
+        const ltValues = Object.entries(score.lt || {})
+          .filter(([, v]) => v !== null)
+          .map(([k, v]) => `${k}:${v}°`)
+          .join('/')
+        const rtValues = Object.entries(score.rt || {})
+          .filter(([, v]) => v !== null)
+          .map(([k, v]) => `${k}:${v}°`)
+          .join('/')
+        if (ltValues || rtValues) {
+          const name = key.charAt(0).toUpperCase() + key.slice(1)
+          lines.push(`${name}: Lt.(${ltValues || '-'}) / Rt.(${rtValues || '-'})`)
+        }
+      }
+
+      romSummary = lines.join('\n')
+    }
+  }
+
+  return { scoreCards, trendData, mmtSummary, romSummary }
 }
 
 export function useAssessmentSummary(): AssessmentSummary {

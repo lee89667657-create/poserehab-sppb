@@ -1,6 +1,8 @@
 'use client'
 
 import { useState, useMemo, Suspense } from 'react'
+import { usePatientAssessments } from '@/hooks/use-patient-assessments'
+import { buildSummaryFromDB } from '@/hooks/use-assessment-summary'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { ClipboardList, TrendingUp, Send, ArrowLeft, User } from 'lucide-react'
 import { MainLayout } from '@/components/layout/main-layout'
@@ -103,10 +105,25 @@ function ReportsContent() {
   } = usePatientContextStore()
 
   const { subjective, objective, assessment, plan } = useSoapStore()
-  const assessmentSummary = useAssessmentSummary()
+  const localSummary = useAssessmentSummary()
 
   const patientIdParam = searchParams.get('patient')
   const hasPatientContext = patientIdParam && selectedPatientId === patientIdParam && selectedPatientName
+
+  // Fetch Supabase assessments when patient is selected
+  const { assessments: dbAssessments } = usePatientAssessments(
+    hasPatientContext ? patientIdParam! : undefined
+  )
+  const dbSummary = useMemo(
+    () => (dbAssessments.length > 0 ? buildSummaryFromDB(dbAssessments) : null),
+    [dbAssessments]
+  )
+
+  // Supabase data takes priority, localStorage as fallback
+  const scoreCards = dbSummary?.scoreCards ?? localSummary.scoreCards
+  const trendData = dbSummary?.trendData ?? localSummary.trendData
+  const mmtSummary = dbSummary?.mmtSummary ?? localSummary.mmtSummary
+  const romSummary = dbSummary?.romSummary ?? localSummary.romSummary
 
   // Use SOAP store data if available, otherwise default
   const soapHasContent = subjective.chiefComplaint || objective.autoFindings || assessment.clinicalImpression
@@ -228,10 +245,10 @@ function ReportsContent() {
               regions: defaultRegions,
               soap: soapData,
             }}
-            scoreCards={assessmentSummary.scoreCards}
-            trendData={assessmentSummary.trendData}
-            mmtSummary={assessmentSummary.mmtSummary}
-            romSummary={assessmentSummary.romSummary}
+            scoreCards={scoreCards}
+            trendData={trendData}
+            mmtSummary={mmtSummary}
+            romSummary={romSummary}
           />
         )}
 
@@ -241,7 +258,7 @@ function ReportsContent() {
             periodStart="2026-01-15"
             periodEnd={today}
             snapshots={defaultSnapshots}
-            assessmentTrend={assessmentSummary.trendData}
+            assessmentTrend={trendData}
           />
         )}
 
@@ -256,9 +273,9 @@ function ReportsContent() {
                 ? assessment.clinicalImpression
                 : `${patientDiagnosis}으로 치료 중. 정밀 검사 및 전문의 평가 필요.`
             }
-            scoreCards={assessmentSummary.scoreCards}
-            mmtSummary={assessmentSummary.mmtSummary}
-            romSummary={assessmentSummary.romSummary}
+            scoreCards={scoreCards}
+            mmtSummary={mmtSummary}
+            romSummary={romSummary}
           />
         )}
 
