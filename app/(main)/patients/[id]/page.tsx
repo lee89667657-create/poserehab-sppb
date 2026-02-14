@@ -16,6 +16,8 @@ import {
   ChevronRight,
   FileDown,
   Loader2,
+  FileText,
+  BarChart3,
 } from 'lucide-react'
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
@@ -583,11 +585,25 @@ export default function PatientDetailPage() {
               </CardContent>
             </Card>
 
-            {/* 새 평가 + 리포트 출력 버튼 */}
-            <div className="flex gap-3">
+            {/* 새 평가 + SOAP + 리포트 버튼 */}
+            <div className="flex flex-wrap gap-3">
               <Button onClick={handleGoToAssessment} className="flex-1">
                 <ClipboardCheck className="mr-2 h-4 w-4" />
                 {language === 'ko' ? '새 평가 시작' : 'Start New Assessment'}
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => router.push(`/soap?patient=${patientId}`)}
+              >
+                <FileText className="mr-2 h-4 w-4" />
+                {language === 'ko' ? 'SOAP 작성' : 'Write SOAP'}
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => router.push(`/reports?patient=${patientId}`)}
+              >
+                <BarChart3 className="mr-2 h-4 w-4" />
+                {language === 'ko' ? '리포트 생성' : 'Generate Report'}
               </Button>
               <Button
                 variant="outline"
@@ -599,7 +615,7 @@ export default function PatientDetailPage() {
                 ) : (
                   <FileDown className="mr-2 h-4 w-4" />
                 )}
-                {language === 'ko' ? '리포트 출력' : 'Export Report'}
+                {language === 'ko' ? 'PDF 출력' : 'Export PDF'}
               </Button>
             </div>
 

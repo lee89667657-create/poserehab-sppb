@@ -29,7 +29,16 @@
     "dataRecords": "데이터/기록",
     "patientGuide": "환자 가이드",
     "patientDashboard": "환자 대시보드",
-    "settings": "설정"
+    "settings": "설정",
+    "anatomy": "해부학 뷰어",
+    "anatomySearch": "질환 검색",
+    "soap": "SOAP 기록",
+    "reports": "리포트",
+    "therapyCenters": "치료센터",
+    "ai3dAnalysis": "AI 3D 분석",
+    "guidedExercise": "가이드 운동",
+    "exerciseList": "운동 목록",
+    "exerciseGames": "재활 게임"
   },
   "auth": {
     "login": "로그인",

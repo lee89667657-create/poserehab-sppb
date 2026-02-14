@@ -42,3 +42,6 @@ Thumbs.db
 
 CLAUDE.md
 PRD.md
+
+# Large binary models
+public/models/*.glb

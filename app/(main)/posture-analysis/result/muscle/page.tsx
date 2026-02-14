@@ -5,11 +5,12 @@ import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Eye, EyeOff } from 'lucide-react'
+import { Eye, EyeOff, Dumbbell, ExternalLink } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useTranslation } from '@/hooks/use-translation'
 import { usePostureStore } from '@/stores/posture-store'
 import { AnatomicalBody, isMuscleVisibleInView, type MuscleState } from '@/components/posture/anatomical-body'
+import { muscleIdToRegionKey } from '@/lib/anatomy/muscle-region-map'
 import type { MuscleInfo } from '@/types/analysis-result'
 
 interface MuscleToggleProps {
@@ -17,10 +18,13 @@ interface MuscleToggleProps {
   type: 'contracted' | 'stretched'
   language: 'ko' | 'en'
   onToggle: (id: string) => void
+  onViewAnatomy?: (muscleId: string) => void
   isInCurrentView?: boolean
 }
 
-function MuscleToggle({ muscle, type, language, onToggle, isInCurrentView = true }: MuscleToggleProps) {
+function MuscleToggle({ muscle, type, language, onToggle, onViewAnatomy, isInCurrentView = true }: MuscleToggleProps) {
+  const hasAnatomyLink = !!muscleIdToRegionKey(muscle.id)
+
   return (
     <motion.div
       initial={{ opacity: 0, x: -10 }}
@@ -35,17 +39,29 @@ function MuscleToggle({ muscle, type, language, onToggle, isInCurrentView = true
         !isInCurrentView && 'opacity-50'
       )}
     >
-      <div className="flex items-center gap-2">
-        <span
+      <div className="flex items-center gap-2 min-w-0">
+        <button
+          onClick={() => hasAnatomyLink && onViewAnatomy?.(muscle.id)}
+          disabled={!hasAnatomyLink}
           className={cn(
-            'text-sm',
+            'text-sm text-left truncate',
+            hasAnatomyLink
+              ? 'hover:underline cursor-pointer'
+              : '',
             muscle.visible ? 'text-text-primary' : 'text-text-secondary'
           )}
+          title={hasAnatomyLink
+            ? (language === 'ko' ? '3D 해부학 뷰어에서 보기' : 'View in 3D Anatomy Viewer')
+            : undefined
+          }
         >
           {language === 'ko' ? muscle.nameKo : muscle.name}
-        </span>
+        </button>
+        {hasAnatomyLink && (
+          <ExternalLink className="h-3 w-3 text-text-secondary/50 flex-shrink-0" />
+        )}
         {!isInCurrentView && (
-          <span className="text-xs text-text-secondary px-1.5 py-0.5 bg-border/50 rounded">
+          <span className="text-xs text-text-secondary px-1.5 py-0.5 bg-border/50 rounded flex-shrink-0">
             {language === 'ko' ? '다른 뷰' : 'Other view'}
           </span>
         )}
@@ -53,7 +69,7 @@ function MuscleToggle({ muscle, type, language, onToggle, isInCurrentView = true
       <button
         onClick={() => onToggle(muscle.id)}
         className={cn(
-          'relative w-10 h-6 rounded-full transition-all flex-shrink-0',
+          'relative w-10 h-6 rounded-full transition-all flex-shrink-0 ml-2',
           muscle.visible
             ? type === 'contracted'
               ? 'bg-error'
@@ -98,6 +114,13 @@ export default function MusclePage() {
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
       </div>
     )
+  }
+
+  const handleViewAnatomy = (muscleId: string) => {
+    const regionKey = muscleIdToRegionKey(muscleId)
+    if (regionKey) {
+      router.push(`/anatomy?highlight=${regionKey}`)
+    }
   }
 
   const toggleMuscle = (id: string, type: 'contracted' | 'stretched') => {
@@ -276,6 +299,7 @@ export default function MusclePage() {
                       type="contracted"
                       language={language}
                       onToggle={(id) => toggleMuscle(id, 'contracted')}
+                      onViewAnatomy={handleViewAnatomy}
                       isInCurrentView={isMuscleVisibleInView(muscle.id, viewMode)}
                     />
                   </motion.div>
@@ -328,6 +352,7 @@ export default function MusclePage() {
                       type="stretched"
                       language={language}
                       onToggle={(id) => toggleMuscle(id, 'stretched')}
+                      onViewAnatomy={handleViewAnatomy}
                       isInCurrentView={isMuscleVisibleInView(muscle.id, viewMode)}
                     />
                   </motion.div>
@@ -397,6 +422,17 @@ export default function MusclePage() {
                   : 'Improve muscle imbalance through a balanced exercise program.'}
               </li>
             </ul>
+          </div>
+
+          <div className="mt-4 flex justify-center">
+            <Button
+              onClick={() => router.push('/exercise-recommendations?source=posture')}
+              className="gap-2"
+              size="lg"
+            >
+              <Dumbbell className="h-5 w-5" />
+              {language === 'ko' ? '맞춤 운동 보기' : 'View Personalized Exercises'}
+            </Button>
           </div>
         </CardContent>
       </Card>

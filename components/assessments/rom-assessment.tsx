@@ -13,6 +13,7 @@ import { cn } from '@/lib/utils'
 import { usePatientContextStore } from '@/stores/patient-context-store'
 import { useAuth } from '@/hooks/use-auth'
 import { saveAssessmentToSupabase } from '@/lib/supabase-save'
+import { ReportLinkButton } from '@/components/assessments/report-link-button'
 
 // 구조화된 값 → 화면 표시 문자열
 const valuesToDisplay = (side: ROMSideScore, valueKeys: string[]): string => {
@@ -206,6 +207,7 @@ export function ROMAssessment() {
           {language === 'ko' ? '결과 저장' : 'Save Results'}
         </Button>
       </div>
+      <ReportLinkButton show={saveSuccess} />
     </div>
   )
 }

@@ -29,7 +29,16 @@
     "dataRecords": "Data/Records",
     "patientGuide": "Patient Guide",
     "patientDashboard": "Patient Dashboard",
-    "settings": "Settings"
+    "settings": "Settings",
+    "anatomy": "Anatomy Viewer",
+    "anatomySearch": "Disease Search",
+    "soap": "SOAP Notes",
+    "reports": "Reports",
+    "therapyCenters": "Therapy Centers",
+    "ai3dAnalysis": "AI 3D Analysis",
+    "guidedExercise": "Guided Exercise",
+    "exerciseList": "Exercise List",
+    "exerciseGames": "Rehab Games"
   },
   "auth": {
     "login": "Login",

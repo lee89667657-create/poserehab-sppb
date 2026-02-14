@@ -12,6 +12,7 @@ import { useRouter } from 'next/navigation'
 import { usePatientContextStore } from '@/stores/patient-context-store'
 import { useAuth } from '@/hooks/use-auth'
 import { saveAssessmentToSupabase } from '@/lib/supabase-save'
+import { ReportLinkButton } from '@/components/assessments/report-link-button'
 
 export function HandFunctionAssessment() {
   const router = useRouter()
@@ -246,6 +247,7 @@ export function HandFunctionAssessment() {
           {language === 'ko' ? '결과 저장' : 'Save Results'}
         </Button>
       </div>
+      <ReportLinkButton show={saveSuccess} />
     </div>
   )
 }
