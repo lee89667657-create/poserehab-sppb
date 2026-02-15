@@ -3,7 +3,7 @@ import './globals.css'
 import { Providers } from './providers'
 
 export const metadata: Metadata = {
-  title: 'PostureAI - AI 기반 자세 분석',
+  title: 'PosFit - AI 기반 자세 분석',
   description: 'AI 기반 자세 분석 및 재활 운동 플랫폼',
 }
 

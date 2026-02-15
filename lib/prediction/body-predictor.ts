@@ -44,6 +44,7 @@ const POSTURE_ANGLE_IMPACT: Record<PostureType, Partial<PostureAngles>> = {
   pelvic_tilt: { pelvicTilt: 8 },
   bow_legs: { pelvicTilt: 3 },
   knock_knees: { pelvicTilt: 3 },
+  round_shoulder: { shoulderRound: 8 },
 }
 
 function extractCurrentAngles(analysis: PostureAnalysisResult): PostureAngles {

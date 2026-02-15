@@ -771,7 +771,7 @@ export default function DataRecordsPage() {
               ) : (
               <>
               {/* 3열 2행 그리드 - 한 화면에 모두 표시 */}
-              <div className="grid grid-cols-3 grid-rows-2 gap-3" style={{ height: 'calc(100vh - 240px)' }}>
+              <div className="grid grid-cols-3 gap-3" style={{ maxHeight: 'calc(100vh - 240px)', gridTemplateRows: '1fr auto' }}>
 
                 {/* ─── 1. BBS: 꺾은선 + 위험도 구간 ─── */}
                 <Card className="flex flex-col overflow-hidden min-h-0 hover:ring-2 hover:ring-primary/20 transition-all cursor-pointer" onClick={() => setExpandedCard('BBS')}>
@@ -932,9 +932,9 @@ export default function DataRecordsPage() {
                 </Card>
 
                 {/* ─── 4. MMT: 부위별 등급 텍스트 테이블 ─── */}
-                <Card className="flex flex-col overflow-hidden min-h-0 hover:ring-2 hover:ring-primary/20 transition-all cursor-pointer" onClick={() => setExpandedCard('MMT')}>
-                  <CardContent className="p-3 flex flex-col flex-1 min-h-0">
-                    <div className="flex items-center justify-between mb-1.5">
+                <Card className="overflow-hidden min-h-0 hover:ring-2 hover:ring-primary/20 transition-all cursor-pointer" onClick={() => setExpandedCard('MMT')}>
+                  <CardContent className="p-3">
+                    <div className="flex items-center justify-between mb-1">
                       <div className="flex items-center gap-1.5">
                         <span className="inline-flex items-center rounded-md bg-purple-100 px-1.5 py-0.5 text-[10px] font-bold text-purple-700 dark:bg-purple-500/20 dark:text-purple-400">MMT</span>
                         <span className="text-[10px] text-text-secondary">{isKo ? '근력' : 'Strength'}</span>
@@ -945,36 +945,36 @@ export default function DataRecordsPage() {
                         </span>
                       )}
                     </div>
-                    <div className="flex-1 min-h-0 overflow-y-auto">
+                    <div className="max-h-36 overflow-y-auto">
                       {mmtDetailData.length > 0 ? (
-                        <div className="space-y-0.5">
+                        <div className="space-y-0">
                           {mmtDetailData.map((m) => (
-                            <div key={m.key} className="flex items-center gap-1 py-[3px] border-b border-border/30 last:border-0">
-                              <span className="text-[9px] font-medium text-text-primary w-10 shrink-0 truncate">{m.muscle}</span>
+                            <div key={m.key} className="flex items-center gap-1.5 py-[3px] border-b border-border/30 last:border-0">
+                              <span className="text-[10px] font-medium text-text-primary w-12 shrink-0 truncate">{m.muscle}</span>
                               {/* Lt */}
                               <div className="flex-1 flex items-center gap-0.5 min-w-0">
-                                <span className="text-[7px] text-purple-400 shrink-0">Lt</span>
+                                <span className="text-[8px] text-purple-400 shrink-0">Lt</span>
                                 {m.prevLt !== null ? (
-                                  <span className="text-[8px] text-text-secondary truncate">{mmtGradeName(m.prevLt)}→<span className="font-bold text-text-primary">{mmtGradeName(m.currLt)}</span></span>
+                                  <span className="text-[9px] text-text-secondary truncate">{mmtGradeName(m.prevLt)}→<span className="font-bold text-text-primary">{mmtGradeName(m.currLt)}</span></span>
                                 ) : (
-                                  <span className="text-[8px] font-bold text-text-primary">{mmtGradeName(m.currLt)}</span>
+                                  <span className="text-[9px] font-bold text-text-primary">{mmtGradeName(m.currLt)}</span>
                                 )}
                                 {m.ltDiff !== null && (
-                                  <span className={cn('text-[8px] font-bold shrink-0', m.ltDiff > 0 ? 'text-emerald-500' : m.ltDiff < 0 ? 'text-red-500' : 'text-text-secondary')}>
+                                  <span className={cn('text-[9px] font-bold shrink-0', m.ltDiff > 0 ? 'text-emerald-500' : m.ltDiff < 0 ? 'text-red-500' : 'text-text-secondary')}>
                                     {m.ltDiff > 0 ? '↑' : m.ltDiff < 0 ? '↓' : '-'}
                                   </span>
                                 )}
                               </div>
                               {/* Rt */}
                               <div className="flex-1 flex items-center gap-0.5 min-w-0">
-                                <span className="text-[7px] text-pink-400 shrink-0">Rt</span>
+                                <span className="text-[8px] text-pink-400 shrink-0">Rt</span>
                                 {m.prevRt !== null ? (
-                                  <span className="text-[8px] text-text-secondary truncate">{mmtGradeName(m.prevRt)}→<span className="font-bold text-text-primary">{mmtGradeName(m.currRt)}</span></span>
+                                  <span className="text-[9px] text-text-secondary truncate">{mmtGradeName(m.prevRt)}→<span className="font-bold text-text-primary">{mmtGradeName(m.currRt)}</span></span>
                                 ) : (
-                                  <span className="text-[8px] font-bold text-text-primary">{mmtGradeName(m.currRt)}</span>
+                                  <span className="text-[9px] font-bold text-text-primary">{mmtGradeName(m.currRt)}</span>
                                 )}
                                 {m.rtDiff !== null && (
-                                  <span className={cn('text-[8px] font-bold shrink-0', m.rtDiff > 0 ? 'text-emerald-500' : m.rtDiff < 0 ? 'text-red-500' : 'text-text-secondary')}>
+                                  <span className={cn('text-[9px] font-bold shrink-0', m.rtDiff > 0 ? 'text-emerald-500' : m.rtDiff < 0 ? 'text-red-500' : 'text-text-secondary')}>
                                     {m.rtDiff > 0 ? '↑' : m.rtDiff < 0 ? '↓' : '-'}
                                   </span>
                                 )}
@@ -989,9 +989,9 @@ export default function DataRecordsPage() {
                   </CardContent>
                 </Card>
 
-                {/* ─── 5. Hand: 반원 게이지 Lt/Rt ─── */}
+                {/* ─── 5. Hand: 도넛 차트 Lt/Rt ─── */}
                 <Card className="flex flex-col overflow-hidden min-h-0 hover:ring-2 hover:ring-primary/20 transition-all cursor-pointer" onClick={() => setExpandedCard('Hand')}>
-                  <CardContent className="p-3 flex flex-col flex-1 min-h-0">
+                  <CardContent className="p-3">
                     <div className="flex items-center justify-between mb-1">
                       <div className="flex items-center gap-1.5">
                         <span className="inline-flex items-center rounded-md bg-pink-100 px-1.5 py-0.5 text-[10px] font-bold text-pink-700 dark:bg-pink-500/20 dark:text-pink-400">Hand</span>
@@ -1004,70 +1004,66 @@ export default function DataRecordsPage() {
                       )}
                     </div>
                     {handCurr ? (() => {
-                      const ltPct = (handCurr.leftTotalScore / 32) * 100
-                      const rtPct = (handCurr.rightTotalScore / 32) * 100
                       const ltDiff = handPrev ? handCurr.leftTotalScore - handPrev.leftTotalScore : null
                       const rtDiff = handPrev ? handCurr.rightTotalScore - handPrev.rightTotalScore : null
-                      const ltDonut = [{ value: handCurr.leftTotalScore }, { value: 32 - handCurr.leftTotalScore }]
-                      const rtDonut = [{ value: handCurr.rightTotalScore }, { value: 32 - handCurr.rightTotalScore }]
-                      const ltPrevDonut = handPrev ? [{ value: handPrev.leftTotalScore }, { value: 32 - handPrev.leftTotalScore }] : null
-                      const rtPrevDonut = handPrev ? [{ value: handPrev.rightTotalScore }, { value: 32 - handPrev.rightTotalScore }] : null
+                      const ltDonut = [{ name: 'score', value: handCurr.leftTotalScore }, { name: 'rest', value: 32 - handCurr.leftTotalScore }]
+                      const rtDonut = [{ name: 'score', value: handCurr.rightTotalScore }, { name: 'rest', value: 32 - handCurr.rightTotalScore }]
                       return (
-                        <div className="flex-1 flex min-h-0">
-                          {/* Lt 반원 */}
-                          <div className="flex-1 flex flex-col items-center justify-center relative">
-                            <ResponsiveContainer width="100%" height="80%">
+                        <div className="flex h-28">
+                          {/* Lt donut */}
+                          <div className="flex-1 relative">
+                            <ResponsiveContainer width="100%" height="100%">
                               <PieChart>
-                                {ltPrevDonut && (
-                                  <Pie data={ltPrevDonut} cx="50%" cy="70%" innerRadius="50%" outerRadius="60%" startAngle={180} endAngle={0} dataKey="value" stroke="none">
-                                    <Cell fill="#D1D5DB" /><Cell fill="transparent" />
-                                  </Pie>
-                                )}
-                                <Pie data={ltDonut} cx="50%" cy="70%" innerRadius="65%" outerRadius="85%" startAngle={180} endAngle={0} dataKey="value" stroke="none">
+                                <Pie data={ltDonut} cx="50%" cy="50%" innerRadius="55%" outerRadius="80%" startAngle={90} endAngle={-270} dataKey="value" stroke="none">
                                   <Cell fill="#EC4899" /><Cell fill="hsl(var(--border))" />
                                 </Pie>
                               </PieChart>
                             </ResponsiveContainer>
-                            <div className="absolute bottom-[20%] flex flex-col items-center" style={{ pointerEvents: 'none' }}>
-                              <span className="text-sm font-bold text-pink-600">{handCurr.leftTotalScore}</span>
-                              <span className="text-[8px] text-text-secondary">/32</span>
-                              {ltDiff !== null && <DiffBadge diff={ltDiff} />}
+                            <div className="absolute inset-0 flex flex-col items-center justify-center" style={{ pointerEvents: 'none' }}>
+                              <span className="text-lg font-bold text-pink-600">{handCurr.leftTotalScore}</span>
+                              <span className="text-[9px] text-text-secondary">/32</span>
+                              {ltDiff !== null && (
+                                <span className={cn('text-[10px] font-bold', ltDiff > 0 ? 'text-emerald-500' : ltDiff < 0 ? 'text-red-500' : 'text-text-secondary')}>
+                                  {ltDiff > 0 ? `+${ltDiff}` : ltDiff}
+                                </span>
+                              )}
                             </div>
-                            <span className="text-[9px] font-medium text-text-secondary -mt-1">Lt({isKo ? '환측' : 'Aff.'})</span>
                           </div>
-                          {/* Rt 반원 */}
-                          <div className="flex-1 flex flex-col items-center justify-center relative">
-                            <ResponsiveContainer width="100%" height="80%">
+                          {/* Rt donut */}
+                          <div className="flex-1 relative">
+                            <ResponsiveContainer width="100%" height="100%">
                               <PieChart>
-                                {rtPrevDonut && (
-                                  <Pie data={rtPrevDonut} cx="50%" cy="70%" innerRadius="50%" outerRadius="60%" startAngle={180} endAngle={0} dataKey="value" stroke="none">
-                                    <Cell fill="#D1D5DB" /><Cell fill="transparent" />
-                                  </Pie>
-                                )}
-                                <Pie data={rtDonut} cx="50%" cy="70%" innerRadius="65%" outerRadius="85%" startAngle={180} endAngle={0} dataKey="value" stroke="none">
+                                <Pie data={rtDonut} cx="50%" cy="50%" innerRadius="55%" outerRadius="80%" startAngle={90} endAngle={-270} dataKey="value" stroke="none">
                                   <Cell fill="#8B5CF6" /><Cell fill="hsl(var(--border))" />
                                 </Pie>
                               </PieChart>
                             </ResponsiveContainer>
-                            <div className="absolute bottom-[20%] flex flex-col items-center" style={{ pointerEvents: 'none' }}>
-                              <span className="text-sm font-bold text-violet-600">{handCurr.rightTotalScore}</span>
-                              <span className="text-[8px] text-text-secondary">/32</span>
-                              {rtDiff !== null && <DiffBadge diff={rtDiff} />}
+                            <div className="absolute inset-0 flex flex-col items-center justify-center" style={{ pointerEvents: 'none' }}>
+                              <span className="text-lg font-bold text-violet-600">{handCurr.rightTotalScore}</span>
+                              <span className="text-[9px] text-text-secondary">/32</span>
+                              {rtDiff !== null && (
+                                <span className={cn('text-[10px] font-bold', rtDiff > 0 ? 'text-emerald-500' : rtDiff < 0 ? 'text-red-500' : 'text-text-secondary')}>
+                                  {rtDiff > 0 ? `+${rtDiff}` : rtDiff}
+                                </span>
+                              )}
                             </div>
-                            <span className="text-[9px] font-medium text-text-secondary -mt-1">Rt({isKo ? '건측' : 'Sound'})</span>
                           </div>
                         </div>
                       )
                     })() : (
-                      <div className="flex-1 flex items-center justify-center text-[10px] text-text-secondary">{isKo ? '미평가' : 'N/A'}</div>
+                      <div className="h-28 flex items-center justify-center text-[10px] text-text-secondary">{isKo ? '미평가' : 'N/A'}</div>
                     )}
+                    <div className="flex justify-around mt-1">
+                      <span className="text-[10px] font-medium text-text-secondary">Lt({isKo ? '환측' : 'Aff.'})</span>
+                      <span className="text-[10px] font-medium text-text-secondary">Rt({isKo ? '건측' : 'Sound'})</span>
+                    </div>
                   </CardContent>
                 </Card>
 
                 {/* ─── 6. ROM: 부위별 각도 텍스트 테이블 ─── */}
-                <Card className="flex flex-col overflow-hidden min-h-0 hover:ring-2 hover:ring-primary/20 transition-all cursor-pointer" onClick={() => setExpandedCard('ROM')}>
-                  <CardContent className="p-3 flex flex-col flex-1 min-h-0">
-                    <div className="flex items-center justify-between mb-1.5">
+                <Card className="overflow-hidden min-h-0 hover:ring-2 hover:ring-primary/20 transition-all cursor-pointer" onClick={() => setExpandedCard('ROM')}>
+                  <CardContent className="p-3">
+                    <div className="flex items-center justify-between mb-1">
                       <div className="flex items-center gap-1.5">
                         <span className="inline-flex items-center rounded-md bg-cyan-100 px-1.5 py-0.5 text-[10px] font-bold text-cyan-700 dark:bg-cyan-500/20 dark:text-cyan-400">ROM</span>
                         <span className="text-[10px] text-text-secondary">{isKo ? '관절가동범위' : 'ROM'}</span>
@@ -1083,7 +1079,7 @@ export default function DataRecordsPage() {
                         return <span className="text-[10px] font-bold text-cyan-600">{cnt > 0 ? Math.round(totalPct / cnt) : 0}% {isKo ? '달성' : 'norm'}</span>
                       })()}
                     </div>
-                    <div className="flex-1 min-h-0 overflow-y-auto">
+                    <div className="max-h-36 overflow-y-auto">
                       {romCurr ? (
                         <div className="space-y-0">
                           {Object.entries(romCurr.scores).map(([jid, sides]) => {
@@ -1101,39 +1097,39 @@ export default function DataRecordsPage() {
                               const best = Math.max(cL ?? 0, cR ?? 0)
                               const pct = norm && norm > 0 ? Math.round(Math.min((best / norm) * 100, 100)) : null
                               return (
-                                <div key={`${jid}-${motion}`} className="flex items-center gap-1 py-[3px] border-b border-border/30 last:border-0">
-                                  <span className="text-[8px] font-medium text-text-primary w-14 shrink-0 truncate">{jointLabels[jid] || jid} {motionLabels[motion] || motion}</span>
+                                <div key={`${jid}-${motion}`} className="flex items-center gap-1.5 py-[3px] border-b border-border/30 last:border-0">
+                                  <span className="text-[9px] font-medium text-text-primary w-14 shrink-0 truncate">{jointLabels[jid] || jid} {motionLabels[motion] || motion}</span>
                                   {/* Lt */}
                                   <div className="flex-1 flex items-center gap-0.5 min-w-0">
-                                    <span className="text-[7px] text-cyan-400 shrink-0">Lt</span>
+                                    <span className="text-[8px] text-cyan-400 shrink-0">Lt</span>
                                     {pL !== null ? (
-                                      <span className="text-[8px] text-text-secondary truncate">{pL}→<span className="font-bold text-text-primary">{cL}°</span></span>
+                                      <span className="text-[9px] text-text-secondary truncate">{pL}→<span className="font-bold text-text-primary">{cL}°</span></span>
                                     ) : (
-                                      <span className="text-[8px] font-bold text-text-primary">{cL !== null ? `${cL}°` : '-'}</span>
+                                      <span className="text-[9px] font-bold text-text-primary">{cL !== null ? `${cL}°` : '-'}</span>
                                     )}
                                     {lD !== null && lD !== 0 && (
-                                      <span className={cn('text-[7px] font-bold shrink-0', lD > 0 ? 'text-emerald-500' : 'text-red-500')}>
+                                      <span className={cn('text-[8px] font-bold shrink-0', lD > 0 ? 'text-emerald-500' : 'text-red-500')}>
                                         {lD > 0 ? '↑' : '↓'}
                                       </span>
                                     )}
                                   </div>
                                   {/* Rt */}
                                   <div className="flex-1 flex items-center gap-0.5 min-w-0">
-                                    <span className="text-[7px] text-violet-400 shrink-0">Rt</span>
+                                    <span className="text-[8px] text-violet-400 shrink-0">Rt</span>
                                     {pR !== null ? (
-                                      <span className="text-[8px] text-text-secondary truncate">{pR}→<span className="font-bold text-text-primary">{cR}°</span></span>
+                                      <span className="text-[9px] text-text-secondary truncate">{pR}→<span className="font-bold text-text-primary">{cR}°</span></span>
                                     ) : (
-                                      <span className="text-[8px] font-bold text-text-primary">{cR !== null ? `${cR}°` : '-'}</span>
+                                      <span className="text-[9px] font-bold text-text-primary">{cR !== null ? `${cR}°` : '-'}</span>
                                     )}
                                     {rD !== null && rD !== 0 && (
-                                      <span className={cn('text-[7px] font-bold shrink-0', rD > 0 ? 'text-emerald-500' : 'text-red-500')}>
+                                      <span className={cn('text-[8px] font-bold shrink-0', rD > 0 ? 'text-emerald-500' : 'text-red-500')}>
                                         {rD > 0 ? '↑' : '↓'}
                                       </span>
                                     )}
                                   </div>
                                   {/* 달성률 */}
                                   {pct !== null && (
-                                    <span className={cn('text-[7px] font-bold shrink-0 w-6 text-right', pct >= 80 ? 'text-emerald-500' : pct >= 50 ? 'text-amber-500' : 'text-red-500')}>{pct}%</span>
+                                    <span className={cn('text-[8px] font-bold shrink-0 w-6 text-right', pct >= 80 ? 'text-emerald-500' : pct >= 50 ? 'text-amber-500' : 'text-red-500')}>{pct}%</span>
                                   )}
                                 </div>
                               )

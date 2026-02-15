@@ -5,10 +5,10 @@ export const GAIT_MEASUREMENT_LABELS = {
   strideLength: {
     en: 'Stride Length',
     ko: '보폭',
-    idealMin: 50,
-    idealMax: 70,
-    unit: 'cm',
-    warningThreshold: 15,
+    idealMin: 1.2,
+    idealMax: 1.6,
+    unit: 'm',
+    warningThreshold: 0.2,
     description: {
       en: 'Distance between consecutive heel strikes of the same foot',
       ko: '같은 발의 연속적인 발뒤꿈치 착지 간 거리',

@@ -35,6 +35,7 @@ export type PostureType =
   | 'pelvic_tilt'
   | 'bow_legs'
   | 'knock_knees'
+  | 'round_shoulder'
 
 export interface BodyPartAnalysis {
   name: string
@@ -82,6 +83,7 @@ export interface PostureAnalysisResult {
     description: string
     descriptionKo: string
     exercises: string[]
+    exerciseIds?: string[]
   }[]
   landmarks?: Landmark[]
   imageData?: string // base64

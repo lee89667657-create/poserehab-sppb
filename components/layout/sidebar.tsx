@@ -30,6 +30,7 @@ import {
   BookOpen,
   ListChecks,
   Gamepad2,
+  Activity,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useSettingsStore, type Theme, type ColorTheme } from '@/stores/settings-store'
@@ -54,6 +55,7 @@ const navItems: NavItem[] = [
       { href: '/posture-analysis/ai-3d', icon: Box, labelKey: 'nav.ai3dAnalysis' },
     ],
   },
+  { href: '/gait-analysis', icon: Activity, labelKey: 'nav.gaitAnalysis' },
   {
     href: '/exercise/list', icon: Dumbbell, labelKey: 'nav.exercise',
     children: [
@@ -62,7 +64,7 @@ const navItems: NavItem[] = [
       { href: '/exercise/games', icon: Gamepad2, labelKey: 'nav.exerciseGames' },
     ],
   },
-  { href: '/gait-analysis', icon: ClipboardList, labelKey: 'nav.assessmentTools' },
+  { href: '/assessment-tools', icon: ClipboardList, labelKey: 'nav.assessmentTools' },
   { href: '/anatomy', icon: Bone, labelKey: 'nav.anatomy' },
   { href: '/anatomy-search', icon: Search, labelKey: 'nav.anatomySearch' },
   { href: '/soap', icon: FileText, labelKey: 'nav.soap' },
@@ -131,7 +133,7 @@ export function Sidebar() {
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
                 <span className="text-lg font-bold text-white">P</span>
               </div>
-              <span className="font-semibold text-text-primary">PostureAI</span>
+              <span className="font-semibold text-text-primary">PosFit</span>
             </motion.div>
           )}
         </AnimatePresence>

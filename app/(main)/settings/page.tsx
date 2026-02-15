@@ -77,7 +77,7 @@ export default function SettingsPage() {
                 <span className="text-text-secondary">
                   {language === 'ko' ? '개발' : 'Developed by'}
                 </span>
-                <span className="font-medium text-text-primary">PostureAI Team</span>
+                <span className="font-medium text-text-primary">PosFit Team</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-text-secondary">
@@ -91,8 +91,8 @@ export default function SettingsPage() {
               <div className="pt-3 border-t border-border">
                 <p className="text-xs text-text-secondary text-center">
                   {language === 'ko'
-                    ? 'PostureAI는 AI 기반 자세 분석 및 재활 운동 애플리케이션입니다. 의료 진단을 대체하지 않으며, 건강 문제는 전문의와 상담하세요.'
-                    : 'PostureAI is an AI-powered posture analysis and rehabilitation application. It does not replace medical diagnosis. Consult a healthcare professional for health concerns.'}
+                    ? 'PosFit은 AI 기반 자세 분석 및 재활 운동 애플리케이션입니다. 의료 진단을 대체하지 않으며, 건강 문제는 전문의와 상담하세요.'
+                    : 'PosFit is an AI-powered posture analysis and rehabilitation application. It does not replace medical diagnosis. Consult a healthcare professional for health concerns.'}
                 </p>
               </div>
             </CardContent>

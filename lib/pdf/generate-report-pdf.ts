@@ -83,7 +83,7 @@ const translations = {
     medium: '중간',
     low: '낮음',
     disclaimer: '※ 본 분석 결과는 AI 모델에 의해 추정된 참고 자료이며, 전문 의료 진단을 대체하지 않습니다. 정확한 진단은 전문의와 상담하시기 바랍니다.',
-    poweredBy: 'Powered by PostureAI',
+    poweredBy: 'Powered by PosFit',
   },
   en: {
     title: 'Posture Analysis Report',
@@ -106,7 +106,7 @@ const translations = {
     medium: 'Medium',
     low: 'Low',
     disclaimer: '※ This analysis result is estimated by an AI model and is for reference only. It does not replace professional medical diagnosis. Please consult a specialist for accurate diagnosis.',
-    poweredBy: 'Powered by PostureAI',
+    poweredBy: 'Powered by PosFit',
   },
 }
 
